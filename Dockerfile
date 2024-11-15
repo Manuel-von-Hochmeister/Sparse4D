@@ -33,14 +33,23 @@ RUN pip3 install --upgrade pip && \
     tensorboard==2.14.0 \
     motmetrics==1.1.3 
 
+RUN pip3 uninstall -y mmcv-full mmcv
 RUN pip3 install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu117/torch1.13/index.html
+
+# Install VS Code extensions for Python and Jupyter
+RUN curl -fsSL https://code-server.dev/install.sh | sh
+RUN code-server --install-extension ms-python.python \
+    && code-server --install-extension ms-toolsai.jupyter
 
 
 RUN python3 -m ipykernel install --user --name=my-env --display-name "Python (my-env)"
 
-    # Optionally set environment variables for CUDA
+# Optionally set environment variables for CUDA
 ENV PATH /usr/local/cuda-11.3/bin:$PATH
 ENV LD_LIBRARY_PATH /usr/local/cuda-11.3/lib64:$LD_LIBRARY_PATH
+
+# git stuff
+RUN git config --global --add safe.directory /home/vmn8si/repos/Sparse4D
 
 # Default command (can be adjusted as needed)
 CMD ["/bin/bash"]
