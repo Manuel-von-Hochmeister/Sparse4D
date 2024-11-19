@@ -1,0 +1,32 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/vmn8si/repos/Sparse4D/tools/train.py",
+            "console": "integratedTerminal",
+            "args":[
+                "/home/vmn8si/repos/Sparse4D/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704_fc_only.py",
+                //"1",
+                //"--work-dir", "/home/vmn8si/repos/Sparse4D/output"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "convert_data",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/vmn8si/repos/Sparse4D/tools/nuscenes_converter_fv.py",
+            "console": "integratedTerminal",
+            "args":[
+                "--version",  "v1.0-mini", "--info_prefix", "/home/vmn8si/repos/Sparse4D/data_fc/nuscenes_anno_pkls/nuscenes-mini"
+            ],
+            "justMyCode": false
+        }
+    ]
+}
