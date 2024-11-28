@@ -1,3 +1,7 @@
 *.pyc
 *.npy
 *.pth
+*.so
+log/*
+projects/mmdet3d_plugin/ops/deformable_aggregation_ext.egg-info/*
+projects/mmdet3d_plugin/ops/build/*
