@@ -1,3 +1,11 @@
 *.pyc
 *.npy
 *.pth
+*.sif
+*.tar
+*.pkl
+*.egg-info
+ckpt/*
+data/*
+work_dirs
+projects/mmdet3d_plugin/
