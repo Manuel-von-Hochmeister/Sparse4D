@@ -60,12 +60,12 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 20
-num_gpus = 1
+total_batch_size = 12
+num_gpus = 4
 batch_size = total_batch_size // num_gpus
-num_iters_per_epoch = int(100 // (num_gpus * batch_size))
+num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
 num_epochs = 100
-checkpoint_epoch_interval = 20
+checkpoint_epoch_interval = 2
 
 checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
@@ -151,11 +151,11 @@ model = dict(
         decouple_attn=decouple_attn,
         instance_bank=dict(
             type="InstanceBank",
-            num_anchor=200,
+            num_anchor=900,
             embed_dims=embed_dims,
-            anchor="nuscenes_kmeans900_fc.npy",
+            anchor="nuscenes_kmeans900_mv.npy",
             anchor_handler=dict(type="SparseBox3DKeyPointsGenerator"),
-            num_temp_instances=100 if temporal else -1,
+            num_temp_instances=600 if temporal else -1,
             confidence_decay=0.6,
             feat_grad=False,
         ),
@@ -222,7 +222,7 @@ model = dict(
             embed_dims=embed_dims,
             num_groups=num_groups,
             num_levels=num_levels,
-            num_cams=1,
+            num_cams=6,
             attn_drop=0.15,
             use_deformable_func=use_deformable_func,
             use_camera_embed=True,
@@ -287,19 +287,15 @@ model = dict(
             loss_yawness=dict(type="GaussianFocalLoss"),
             cls_allow_reverse=[class_names.index("barrier")],
         ),
-        decoder=dict(
-            type="SparseBox3DDecoder",
-            num_output=100
-        ),
+        decoder=dict(type="SparseBox3DDecoder"),
         reg_weights=[2.0] * 3 + [1.0] * 7,
     ),
 )
 
 # ================== data ========================
 dataset_type = "NuScenes3DDetTrackDataset"
-data_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_cam/"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_anno_pkls/"
+data_root = "/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/predev/bev/nuScenes/nuScenes_full/nuscenes"
+anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/full2_mv/"
 file_client_args = dict(backend="disk")
 
 img_norm_cfg = dict(
@@ -392,7 +388,7 @@ data = dict(
     workers_per_gpu=batch_size,
     train=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_train.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_train.pkl",
         pipeline=train_pipeline,
         test_mode=False,
         data_aug_conf=data_aug_conf,
@@ -402,7 +398,7 @@ data = dict(
     ),
     val=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
@@ -411,7 +407,7 @@ data = dict(
     ),
     test=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,

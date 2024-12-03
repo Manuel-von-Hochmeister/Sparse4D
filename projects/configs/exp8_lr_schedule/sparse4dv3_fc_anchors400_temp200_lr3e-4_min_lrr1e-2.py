@@ -60,10 +60,10 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 20
-num_gpus = 1
+total_batch_size = 40
+num_gpus = 4
 batch_size = total_batch_size // num_gpus
-num_iters_per_epoch = int(100 // (num_gpus * batch_size))
+num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
 num_epochs = 100
 checkpoint_epoch_interval = 20
 
@@ -77,7 +77,7 @@ log_config = dict(
         dict(type="TensorboardLoggerHook"),
     ],
 )
-load_from = None
+load_from = None #"/home/vmn8si/Sparse4D/ckpt/sparse4dv3_r50.pth"
 resume_from = None
 workflow = [("train", 1)]
 fp16 = dict(loss_scale=32.0)
@@ -128,7 +128,7 @@ model = dict(
         with_cp=True,
         out_indices=(0, 1, 2, 3),
         norm_cfg=dict(type="BN", requires_grad=True),
-        pretrained="ckpt/resnet50-19c8e357.pth",
+        pretrained="/home/vmn8si/Sparse4D/ckpt/resnet50-19c8e357.pth",
     ),
     img_neck=dict(
         type="FPN",
@@ -151,11 +151,11 @@ model = dict(
         decouple_attn=decouple_attn,
         instance_bank=dict(
             type="InstanceBank",
-            num_anchor=200,
+            num_anchor=400,
             embed_dims=embed_dims,
-            anchor="nuscenes_kmeans900_fc.npy",
+            anchor="/home/vmn8si/Sparse4D/anchors/nuscenes_kmeans400_range55.npy",
             anchor_handler=dict(type="SparseBox3DKeyPointsGenerator"),
-            num_temp_instances=100 if temporal else -1,
+            num_temp_instances=200 if temporal else -1,
             confidence_decay=0.6,
             feat_grad=False,
         ),
@@ -297,9 +297,8 @@ model = dict(
 
 # ================== data ========================
 dataset_type = "NuScenes3DDetTrackDataset"
-data_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_cam/"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_anno_pkls/"
+data_root = "/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/predev/bev/nuScenes/nuScenes_full/nuscenes"
+anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/full2/"
 file_client_args = dict(backend="disk")
 
 img_norm_cfg = dict(
@@ -392,7 +391,7 @@ data = dict(
     workers_per_gpu=batch_size,
     train=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_train.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_train.pkl",
         pipeline=train_pipeline,
         test_mode=False,
         data_aug_conf=data_aug_conf,
@@ -402,7 +401,7 @@ data = dict(
     ),
     val=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
@@ -411,7 +410,7 @@ data = dict(
     ),
     test=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
@@ -423,7 +422,7 @@ data = dict(
 # ================== training ========================
 optimizer = dict(
     type="AdamW",
-    lr=6e-4,
+    lr=3e-4,
     weight_decay=0.001,
     paramwise_cfg=dict(
         custom_keys={
@@ -435,9 +434,9 @@ optimizer_config = dict(grad_clip=dict(max_norm=25, norm_type=2))
 lr_config = dict(
     policy="CosineAnnealing",
     warmup="linear",
-    warmup_iters=500,
+    warmup_iters=1000,
     warmup_ratio=1.0 / 3,
-    min_lr_ratio=1e-3,
+    min_lr_ratio=1e-2,
 )
 runner = dict(
     type="IterBasedRunner",

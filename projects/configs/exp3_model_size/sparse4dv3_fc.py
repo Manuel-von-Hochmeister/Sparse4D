@@ -60,10 +60,10 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 20
-num_gpus = 1
+total_batch_size = 32
+num_gpus = 4
 batch_size = total_batch_size // num_gpus
-num_iters_per_epoch = int(100 // (num_gpus * batch_size))
+num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
 num_epochs = 100
 checkpoint_epoch_interval = 20
 
@@ -81,7 +81,7 @@ load_from = None
 resume_from = None
 workflow = [("train", 1)]
 fp16 = dict(loss_scale=32.0)
-input_shape = (704, 256)
+input_shape = (1408, 512)
 
 tracking_test = True
 tracking_threshold = 0.2
@@ -151,9 +151,9 @@ model = dict(
         decouple_attn=decouple_attn,
         instance_bank=dict(
             type="InstanceBank",
-            num_anchor=200,
+            num_anchor=400,
             embed_dims=embed_dims,
-            anchor="nuscenes_kmeans900_fc.npy",
+            anchor="/home/vmn8si/Sparse4D/anchors/nuscenes_kmeans400_range100.npy",
             anchor_handler=dict(type="SparseBox3DKeyPointsGenerator"),
             num_temp_instances=100 if temporal else -1,
             confidence_decay=0.6,
@@ -297,9 +297,8 @@ model = dict(
 
 # ================== data ========================
 dataset_type = "NuScenes3DDetTrackDataset"
-data_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_cam/"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_anno_pkls/"
+data_root = "/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/predev/bev/nuScenes/nuScenes_full/nuscenes"
+anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/full2/"
 file_client_args = dict(backend="disk")
 
 img_norm_cfg = dict(
@@ -392,7 +391,7 @@ data = dict(
     workers_per_gpu=batch_size,
     train=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_train.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_train.pkl",
         pipeline=train_pipeline,
         test_mode=False,
         data_aug_conf=data_aug_conf,
@@ -402,7 +401,7 @@ data = dict(
     ),
     val=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
@@ -411,7 +410,7 @@ data = dict(
     ),
     test=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-trainval_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
