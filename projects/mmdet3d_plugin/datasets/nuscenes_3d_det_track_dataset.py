@@ -13,6 +13,8 @@ import pyquaternion
 from nuscenes.utils.data_classes import Box as NuScenesBox
 from nuscenes.eval.detection.config import config_factory as det_configs
 from nuscenes.eval.common.config import config_factory as track_configs
+from nuscenes.utils.geometry_utils import BoxVisibility
+from nuscenes.eval.common.data_classes import EvalBoxes
 
 import mmcv
 from mmcv.utils import print_log
@@ -470,6 +472,26 @@ class NuScenes3DDetTrackDataset(Dataset):
                 output_dir=output_dir,
                 verbose=True,
             )
+
+            # filter gt boxes that are not visible in FRONT_CAM image
+            filtered_boxes = EvalBoxes()
+            for sample_token, sample_boxes in nusc_eval.gt_boxes.boxes.items():
+                filtered_sample_boxes = []
+                sample_data = nusc.get("sample", sample_token)
+                fc_token = sample_data["data"]["CAM_FRONT"]
+                _, fc_boxes, _ = nusc.get_sample_data(fc_token, box_vis_level=BoxVisibility.ALL)
+
+                for box in sample_boxes:                    
+                    
+                    # check if box with the same widht length height exists in the front cam
+                    for fc_box in fc_boxes:
+                        if np.all(fc_box.wlh == np.array(box.size)):
+                            filtered_sample_boxes.append(box)
+                            break
+                filtered_boxes.add_boxes(sample_token, filtered_sample_boxes)    
+
+            # overwrite the gt boxes with the filtered ones
+            nusc_eval.gt_boxes = filtered_boxes
             nusc_eval.main(render_curves=False)
 
             # record metrics
