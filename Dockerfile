@@ -3,8 +3,12 @@ FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu22.04
 WORKDIR /home/vmn8si/repos/Sparse4D
 
 # Install basic dependencies (you can add more as needed)
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    software-properties-common\
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libgl1 \
@@ -12,10 +16,17 @@ RUN apt-get update && \
     git \
     wget \
     curl \
-    python3 \
+    python3.8 \
+    python3.8-distutils \
     python3-pip \
-    python3-dev && \
+    python3.8-dev && \
     rm -rf /var/lib/apt/lists/* 
+
+# Set Python 3.8 as the default python3 version
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+
+# Upgrade pip for Python 3.8
+RUN python3 -m pip install --upgrade pip
 
 # Install Python packages (optional)
 RUN pip3 install --upgrade pip && \
@@ -31,10 +42,11 @@ RUN pip3 install --upgrade pip && \
     nuscenes-devkit==1.1.10 \
     yapf==0.33.0 \
     tensorboard==2.14.0 \
-    motmetrics==1.1.3 
+    motmetrics==1.1.3 \
+    pandas==1.1.5
 
 RUN pip3 uninstall -y mmcv-full mmcv
-RUN pip3 install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu117/torch1.13/index.html
+RUN pip3 install mmcv-full==1.7.1 -f https://download.openmmlab.com/mmcv/dist/cu117/torch1.13/index.html
 
 # Install VS Code extensions for Python and Jupyter
 RUN curl -fsSL https://code-server.dev/install.sh | sh

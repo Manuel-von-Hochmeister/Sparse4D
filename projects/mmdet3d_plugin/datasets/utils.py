@@ -153,7 +153,7 @@ def draw_points_on_img(points, img, lidar2img_rt, color=(0, 255, 0), circle=4):
 
 
 def draw_lidar_bbox3d_on_bev(
-    bboxes_3d, bev_size, bev_range=115, color=(255, 0, 0), thickness=3):
+    bboxes_3d, bev_size, bev_range=115, color=(255, 0, 0), thickness=1):
     if isinstance(bev_size, (list, tuple)):
         bev_h, bev_w = bev_size
     else:
