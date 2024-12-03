@@ -4,13 +4,13 @@
 #BSUB -o log/%J.stdout                  # optional: have output written to specific file
 #BSUB -e log/%J.stderr                  # optional: have errors written to specific file
 # #BSUB -q rb_highend                 # optional: use highend nodes w/ Volta GPUs (default: Geforce GPUs)
-#BSUB -W 168:00                     # fill in desired wallclock time [hours,]minutes (hours are optional)
-#BSUB -n 10                          # min CPU cores,max CPU cores (max cores is optional)
+#BSUB -W 10:00                     # fill in desired wallclock time [hours,]minutes (hours are optional)
+#BSUB -n 20                          # min CPU cores,max CPU cores (max cores is optional)
 #BSUB -M 8192                       # fill in required amount of RAM (in Mbyte)
 #BSUB -R "span[hosts=1] select[hname!='abts55120' && hname!='abts55125']"            # run on single host (if using more than 1 CPU cores)
 # #BSUB -R "span[ptile=28]"         # optional: fill in to specify cores per node (max 28)
 # #BSUB -P myProject                # optional: fill in cluster project
-#BSUB -gpu "num=4"                  # use num GPU (in explusive process mode)
+#BSUB -gpu "num=2"                  # use num GPU (in explusive process mode)
 
 # Environment variables
 export RB_ROOT_PATH=$PWD
@@ -27,6 +27,4 @@ export XLA_FLAGS=--xla_gpu_cuda_data_dir=/fs/applications/cuda/11.2/
 container="/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/01_trainings/vdet/2024-11-22_MOD-3429_sparse4d/apptainer/sparse4d.sif"
 project_path=$(pwd)
 
-apptainer exec --bind /shares,/fs --nv $container sh -c "cd $project_path/projects/mmdet3d_plugin/ops && python3 setup.py develop --user \
-                && cd $project_path && python3 /home/vmn8si/Sparse4D/tools/train.py /home/vmn8si/Sparse4D/projects/configs/sparse4dv3_fc_400anchors_range100_temp100.py \
-                --work-dir /shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/01_trainings/vdet/2024-11-22_MOD-3429_sparse4d/exp2/anchors400_range100_temp100"
+apptainer exec --bind /shares,/fs --nv $container sh -c "/bin/bash"

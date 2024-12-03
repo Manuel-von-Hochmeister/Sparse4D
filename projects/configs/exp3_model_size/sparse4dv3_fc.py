@@ -65,7 +65,7 @@ num_gpus = 4
 batch_size = total_batch_size // num_gpus
 num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
 num_epochs = 100
-checkpoint_epoch_interval = 10
+checkpoint_epoch_interval = 20
 
 checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
@@ -77,7 +77,7 @@ log_config = dict(
         dict(type="TensorboardLoggerHook"),
     ],
 )
-load_from = "/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/01_trainings/vdet/2024-11-22_MOD-3429_sparse4d/exp2/anchors400_range100_temp100/iter_79110.pth"
+load_from = None
 resume_from = None
 workflow = [("train", 1)]
 fp16 = dict(loss_scale=32.0)

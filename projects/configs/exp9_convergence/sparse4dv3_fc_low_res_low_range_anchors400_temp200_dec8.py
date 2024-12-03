@@ -60,12 +60,12 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 32
+total_batch_size = 40
 num_gpus = 4
 batch_size = total_batch_size // num_gpus
 num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
 num_epochs = 100
-checkpoint_epoch_interval = 10
+checkpoint_epoch_interval = 20
 
 checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
@@ -77,11 +77,11 @@ log_config = dict(
         dict(type="TensorboardLoggerHook"),
     ],
 )
-load_from = "/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/01_trainings/vdet/2024-11-22_MOD-3429_sparse4d/exp2/anchors400_range100_temp100/iter_79110.pth"
+load_from = None #"/home/vmn8si/Sparse4D/ckpt/sparse4dv3_r50.pth"
 resume_from = None
 workflow = [("train", 1)]
 fp16 = dict(loss_scale=32.0)
-input_shape = (1408, 512)
+input_shape = (704, 256)
 
 tracking_test = True
 tracking_threshold = 0.2
@@ -103,7 +103,7 @@ class_names = [
 num_classes = len(class_names)
 embed_dims = 256
 num_groups = 8
-num_decoder = 6
+num_decoder = 8
 num_single_frame_decoder = 1
 use_deformable_func = True  # mmdet3d_plugin/ops/setup.py needs to be executed
 strides = [4, 8, 16, 32]
@@ -128,7 +128,7 @@ model = dict(
         with_cp=True,
         out_indices=(0, 1, 2, 3),
         norm_cfg=dict(type="BN", requires_grad=True),
-        pretrained="ckpt/resnet50-19c8e357.pth",
+        pretrained="/home/vmn8si/Sparse4D/ckpt/resnet50-19c8e357.pth",
     ),
     img_neck=dict(
         type="FPN",
@@ -153,9 +153,9 @@ model = dict(
             type="InstanceBank",
             num_anchor=400,
             embed_dims=embed_dims,
-            anchor="/home/vmn8si/Sparse4D/anchors/nuscenes_kmeans400_range100.npy",
+            anchor="/home/vmn8si/Sparse4D/anchors/nuscenes_kmeans900_range55.npy",
             anchor_handler=dict(type="SparseBox3DKeyPointsGenerator"),
-            num_temp_instances=100 if temporal else -1,
+            num_temp_instances=200 if temporal else -1,
             confidence_decay=0.6,
             feat_grad=False,
         ),
@@ -422,7 +422,7 @@ data = dict(
 # ================== training ========================
 optimizer = dict(
     type="AdamW",
-    lr=6e-4,
+    lr=1e-4,
     weight_decay=0.001,
     paramwise_cfg=dict(
         custom_keys={
