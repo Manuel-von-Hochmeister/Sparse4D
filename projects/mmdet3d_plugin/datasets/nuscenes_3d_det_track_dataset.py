@@ -13,8 +13,10 @@ import pyquaternion
 from nuscenes.utils.data_classes import Box as NuScenesBox
 from nuscenes.eval.detection.config import config_factory as det_configs
 from nuscenes.eval.common.config import config_factory as track_configs
-from nuscenes.utils.geometry_utils import BoxVisibility
+from nuscenes.utils.geometry_utils import box_in_image, BoxVisibility
 from nuscenes.eval.common.data_classes import EvalBoxes
+from nuscenes.utils.data_classes import Box
+from pyquaternion import Quaternion
 
 import mmcv
 from mmcv.utils import print_log
@@ -473,25 +475,88 @@ class NuScenes3DDetTrackDataset(Dataset):
                 verbose=True,
             )
 
-            # filter gt boxes that are not visible in FRONT_CAM image
-            filtered_boxes = EvalBoxes()
+            # filter gt boxes to make sure that only boxes that should be visible in the front cam are used
+            filtered_gt_boxes = EvalBoxes()
             for sample_token, sample_boxes in nusc_eval.gt_boxes.boxes.items():
-                filtered_sample_boxes = []
-                sample_data = nusc.get("sample", sample_token)
-                fc_token = sample_data["data"]["CAM_FRONT"]
-                _, fc_boxes, _ = nusc.get_sample_data(fc_token, box_vis_level=BoxVisibility.ALL)
+                filtered_sample_gt_boxes = []
 
-                for box in sample_boxes:                    
-                    
-                    # check if box with the same widht length height exists in the front cam
-                    for fc_box in fc_boxes:
-                        if np.all(fc_box.wlh == np.array(box.size)):
-                            filtered_sample_boxes.append(box)
-                            break
-                filtered_boxes.add_boxes(sample_token, filtered_sample_boxes)    
+                sample_rec = nusc.get('sample', sample_token)
+                sd_record = nusc.get('sample_data', sample_rec['data']['CAM_FRONT'])
+                pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
+                cs_record = nusc.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
 
-            # overwrite the gt boxes with the filtered ones
-            nusc_eval.gt_boxes = filtered_boxes
+                for gt_box in sample_boxes:
+                    box = Box(
+                        center=gt_box.translation,
+                        size=gt_box.size,
+                        orientation=Quaternion(gt_box.rotation),                        
+                    )    
+
+                    # get box cooridnates in ego coordiante system
+                    # Move box to ego vehicle coord system.
+                    box.translate(-np.array(pose_record['translation']))
+                    box.rotate(Quaternion(pose_record['rotation']).inverse)
+
+                    #  Move box to sensor coord system.
+                    box.translate(-np.array(cs_record['translation']))
+                    box.rotate(Quaternion(cs_record['rotation']).inverse)
+
+                    # determine if box is visible in camera (angle to z axis smaller than 35°)
+                    box_is_fully_visible = box_in_image(
+                        box,
+                        np.array(cs_record['camera_intrinsic']),
+                        (sd_record['width'], sd_record['height']), 
+                        vis_level= BoxVisibility.ALL
+                    )
+                    if box_is_fully_visible:
+                        filtered_sample_gt_boxes.append(gt_box)
+                filtered_gt_boxes.add_boxes(sample_token, filtered_sample_gt_boxes)         
+
+            # overwrite the pred boxes with the filtered ones
+            nusc_eval.gt_boxes = filtered_gt_boxes
+            
+
+
+            # filter pred boxes to make sure that only boxes that should be visible in the front cam are used
+            filtered_det_boxes = EvalBoxes()
+            for sample_token, sample_boxes in nusc_eval.pred_boxes.boxes.items():
+                filtered_sample_det_boxes = []
+
+                sample_rec = nusc.get('sample', sample_token)
+                sd_record = nusc.get('sample_data', sample_rec['data']['CAM_FRONT'])
+                pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
+                cs_record = nusc.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
+
+                for det_box in sample_boxes:
+                    box = Box(
+                        center=det_box.translation,
+                        size=det_box.size,
+                        orientation=Quaternion(det_box.rotation),                        
+                    )    
+
+                    # get box cooridnates in ego coordiante system
+                    # Move box to ego vehicle coord system.
+                    box.translate(-np.array(pose_record['translation']))
+                    box.rotate(Quaternion(pose_record['rotation']).inverse)
+
+                    #  Move box to sensor coord system.
+                    box.translate(-np.array(cs_record['translation']))
+                    box.rotate(Quaternion(cs_record['rotation']).inverse)
+
+                    # determine if box is visible in camera (angle to z axis smaller than 35°)
+                    box_is_fully_visible = box_in_image(
+                        box,
+                        np.array(cs_record['camera_intrinsic']),
+                        (sd_record['width'], sd_record['height']), 
+                        vis_level= BoxVisibility.ALL
+                    )
+                    if box_is_fully_visible:
+                        filtered_sample_det_boxes.append(det_box)
+                filtered_det_boxes.add_boxes(sample_token, filtered_sample_det_boxes)         
+
+            # overwrite the pred boxes with the filtered ones
+            nusc_eval.pred_boxes = filtered_det_boxes
+
             nusc_eval.main(render_curves=False)
 
             # record metrics
