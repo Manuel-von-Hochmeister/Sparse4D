@@ -6,6 +6,8 @@ import cv2
 import tempfile
 import copy
 
+from typing import List
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -16,6 +18,13 @@ from nuscenes.eval.common.config import config_factory as track_configs
 from nuscenes.utils.geometry_utils import box_in_image, BoxVisibility
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.utils.data_classes import Box
+from nuscenes.eval.tracking.loaders import create_tracks
+from nuscenes.eval.tracking.evaluate import TrackingEval
+from nuscenes.eval.tracking.data_classes import TrackingConfig
+from nuscenes import NuScenes
+from nuscenes.eval.common.loaders import load_prediction, load_gt, add_center_dist, filter_eval_boxes
+from nuscenes.eval.tracking.data_classes import TrackingConfig, TrackingBox
+from nuscenes.eval.tracking.loaders import create_tracks
 from pyquaternion import Quaternion
 
 import mmcv
@@ -26,6 +35,135 @@ from .utils import (
     draw_lidar_bbox3d_on_img,
     draw_lidar_bbox3d_on_bev,
 )
+
+def filter_boxes_not_visible_in_front_cam(nusc, boxes):
+    # filter boxes to make sure that only boxes that should be visible in the front cam are used
+    filtered_boxes = EvalBoxes()
+    for sample_token, sample_boxes in boxes.items():
+        filtered_sample_gt_boxes = []
+
+        sample_rec = nusc.get('sample', sample_token)
+        sd_record = nusc.get('sample_data', sample_rec['data']['CAM_FRONT'])
+        pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
+        cs_record = nusc.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
+
+        for gt_box in sample_boxes:
+            box = Box(
+                center=gt_box.translation,
+                size=gt_box.size,
+                orientation=Quaternion(gt_box.rotation),                        
+            )    
+
+            # get box cooridnates in ego coordiante system
+            # Move box to ego vehicle coord system.
+            box.translate(-np.array(pose_record['translation']))
+            box.rotate(Quaternion(pose_record['rotation']).inverse)
+
+            #  Move box to sensor coord system.
+            box.translate(-np.array(cs_record['translation']))
+            box.rotate(Quaternion(cs_record['rotation']).inverse)
+
+            # determine if box is visible in camera (angle to z axis smaller than 35°)
+            box_is_fully_visible = box_in_image(
+                box,
+                np.array(cs_record['camera_intrinsic']),
+                (sd_record['width'], sd_record['height']), 
+                vis_level= BoxVisibility.ALL
+            )
+            if box_is_fully_visible:
+                filtered_sample_gt_boxes.append(gt_box)
+        filtered_boxes.add_boxes(sample_token, filtered_sample_gt_boxes)         
+
+    return filtered_boxes
+
+
+class TrackingEvalFrontCamOnly(TrackingEval):
+    """
+    This is the official nuScenes tracking evaluation code.
+    Results are written to the provided output_dir.
+
+    Here is an overview of the functions in this method:
+    - init: Loads GT annotations and predictions stored in JSON format and filters the boxes.
+    - run: Performs evaluation and dumps the metric data to disk.
+    - render: Renders various plots and dumps to disk.
+
+    We assume that:
+    - Every sample_token is given in the results, although there may be not predictions for that sample.
+
+    Please see https://www.nuscenes.org/tracking for more details.
+    """
+    def __init__(self,
+                 config: TrackingConfig,
+                 result_path: str,
+                 eval_set: str,
+                 output_dir: str,
+                 nusc_version: str,
+                 nusc_dataroot: str,
+                 verbose: bool = True,
+                 render_classes: List[str] = None):
+        """
+        Initialize a TrackingEval object.
+        :param config: A TrackingConfig object.
+        :param result_path: Path of the nuScenes JSON result file.
+        :param eval_set: The dataset split to evaluate on, e.g. train, val or test.
+        :param output_dir: Folder to save plots and results to.
+        :param nusc_version: The version of the NuScenes dataset.
+        :param nusc_dataroot: Path of the nuScenes dataset on disk.
+        :param verbose: Whether to print to stdout.
+        :param render_classes: Classes to render to disk or None.
+        """
+        self.cfg = config
+        self.result_path = result_path
+        self.eval_set = eval_set
+        self.output_dir = output_dir
+        self.verbose = verbose
+        self.render_classes = render_classes
+
+        # Check result file exists.
+        assert os.path.exists(result_path), 'Error: The result file does not exist!'
+
+        # Make dirs.
+        self.plot_dir = os.path.join(self.output_dir, 'plots')
+        if not os.path.isdir(self.output_dir):
+            os.makedirs(self.output_dir)
+        if not os.path.isdir(self.plot_dir):
+            os.makedirs(self.plot_dir)
+
+        # Initialize NuScenes object.
+        # We do not store it in self to let garbage collection take care of it and save memory.
+        nusc = NuScenes(version=nusc_version, verbose=verbose, dataroot=nusc_dataroot)
+
+        # Load data.
+        if verbose:
+            print('Initializing nuScenes tracking evaluation')
+        pred_boxes, self.meta = load_prediction(self.result_path, self.cfg.max_boxes_per_sample, TrackingBox,
+                                                verbose=verbose)
+        gt_boxes = load_gt(nusc, self.eval_set, TrackingBox, verbose=verbose)
+
+        assert set(pred_boxes.sample_tokens) == set(gt_boxes.sample_tokens), \
+            "Samples in split don't match samples in predicted tracks."
+
+        # Add center distances.
+        pred_boxes = add_center_dist(nusc, pred_boxes)
+        gt_boxes = add_center_dist(nusc, gt_boxes)
+
+        # Filter boxes (distance, points per box, etc.).
+        if verbose:
+            print('Filtering tracks')
+        pred_boxes = filter_eval_boxes(nusc, pred_boxes, self.cfg.class_range, verbose=verbose)
+        if verbose:
+            print('Filtering ground truth tracks')
+        gt_boxes = filter_eval_boxes(nusc, gt_boxes, self.cfg.class_range, verbose=verbose)
+
+        # filter boxes that are not visible in the front cam image
+        pred_boxes = filter_boxes_not_visible_in_front_cam(nusc, pred_boxes.boxes)
+        gt_boxes = filter_boxes_not_visible_in_front_cam(nusc, gt_boxes.boxes)
+
+        self.sample_tokens = gt_boxes.sample_tokens
+
+        # Convert boxes to tracks format.
+        self.tracks_gt = create_tracks(gt_boxes, nusc, self.eval_set, gt=True)
+        self.tracks_pred = create_tracks(pred_boxes, nusc, self.eval_set, gt=False)
 
 
 @DATASETS.register_module()
@@ -476,86 +614,14 @@ class NuScenes3DDetTrackDataset(Dataset):
             )
 
             # filter gt boxes to make sure that only boxes that should be visible in the front cam are used
-            filtered_gt_boxes = EvalBoxes()
-            for sample_token, sample_boxes in nusc_eval.gt_boxes.boxes.items():
-                filtered_sample_gt_boxes = []
-
-                sample_rec = nusc.get('sample', sample_token)
-                sd_record = nusc.get('sample_data', sample_rec['data']['CAM_FRONT'])
-                pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
-                cs_record = nusc.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
-
-                for gt_box in sample_boxes:
-                    box = Box(
-                        center=gt_box.translation,
-                        size=gt_box.size,
-                        orientation=Quaternion(gt_box.rotation),                        
-                    )    
-
-                    # get box cooridnates in ego coordiante system
-                    # Move box to ego vehicle coord system.
-                    box.translate(-np.array(pose_record['translation']))
-                    box.rotate(Quaternion(pose_record['rotation']).inverse)
-
-                    #  Move box to sensor coord system.
-                    box.translate(-np.array(cs_record['translation']))
-                    box.rotate(Quaternion(cs_record['rotation']).inverse)
-
-                    # determine if box is visible in camera (angle to z axis smaller than 35°)
-                    box_is_fully_visible = box_in_image(
-                        box,
-                        np.array(cs_record['camera_intrinsic']),
-                        (sd_record['width'], sd_record['height']), 
-                        vis_level= BoxVisibility.ALL
-                    )
-                    if box_is_fully_visible:
-                        filtered_sample_gt_boxes.append(gt_box)
-                filtered_gt_boxes.add_boxes(sample_token, filtered_sample_gt_boxes)         
-
-            # overwrite the pred boxes with the filtered ones
-            nusc_eval.gt_boxes = filtered_gt_boxes
-            
-
-
-            # filter pred boxes to make sure that only boxes that should be visible in the front cam are used
-            filtered_det_boxes = EvalBoxes()
-            for sample_token, sample_boxes in nusc_eval.pred_boxes.boxes.items():
-                filtered_sample_det_boxes = []
-
-                sample_rec = nusc.get('sample', sample_token)
-                sd_record = nusc.get('sample_data', sample_rec['data']['CAM_FRONT'])
-                pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
-                cs_record = nusc.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
-
-                for det_box in sample_boxes:
-                    box = Box(
-                        center=det_box.translation,
-                        size=det_box.size,
-                        orientation=Quaternion(det_box.rotation),                        
-                    )    
-
-                    # get box cooridnates in ego coordiante system
-                    # Move box to ego vehicle coord system.
-                    box.translate(-np.array(pose_record['translation']))
-                    box.rotate(Quaternion(pose_record['rotation']).inverse)
-
-                    #  Move box to sensor coord system.
-                    box.translate(-np.array(cs_record['translation']))
-                    box.rotate(Quaternion(cs_record['rotation']).inverse)
-
-                    # determine if box is visible in camera (angle to z axis smaller than 35°)
-                    box_is_fully_visible = box_in_image(
-                        box,
-                        np.array(cs_record['camera_intrinsic']),
-                        (sd_record['width'], sd_record['height']), 
-                        vis_level= BoxVisibility.ALL
-                    )
-                    if box_is_fully_visible:
-                        filtered_sample_det_boxes.append(det_box)
-                filtered_det_boxes.add_boxes(sample_token, filtered_sample_det_boxes)         
-
-            # overwrite the pred boxes with the filtered ones
-            nusc_eval.pred_boxes = filtered_det_boxes
+            nusc_eval.gt_boxes = filter_boxes_not_visible_in_front_cam(
+                nusc,
+                nusc_eval.gt_boxes.boxes
+            )
+            nusc_eval.pred_boxes = filter_boxes_not_visible_in_front_cam(
+                nusc,
+                nusc_eval.pred_boxes.boxes
+            )
 
             nusc_eval.main(render_curves=False)
 
@@ -583,7 +649,7 @@ class NuScenes3DDetTrackDataset(Dataset):
         else:
             from nuscenes.eval.tracking.evaluate import TrackingEval
 
-            nusc_eval = TrackingEval(
+            nusc_eval = TrackingEvalFrontCamOnly(
                 config=self.track3d_eval_configs,
                 result_path=result_path,
                 eval_set=eval_set_map[self.version],
@@ -592,6 +658,7 @@ class NuScenes3DDetTrackDataset(Dataset):
                 nusc_version=self.version,
                 nusc_dataroot=self.data_root,
             )
+
             metrics = nusc_eval.main()
 
             # record metrics
