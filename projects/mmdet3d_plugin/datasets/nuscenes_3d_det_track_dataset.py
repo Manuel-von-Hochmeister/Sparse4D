@@ -5,6 +5,7 @@ from os import path as osp
 import cv2
 import tempfile
 import copy
+import json
 
 from typing import List
 
@@ -26,6 +27,7 @@ from nuscenes.eval.common.loaders import load_prediction, load_gt, add_center_di
 from nuscenes.eval.tracking.data_classes import TrackingConfig, TrackingBox
 from nuscenes.eval.tracking.loaders import create_tracks
 from pyquaternion import Quaternion
+from nuscenes.eval.detection.data_classes import DetectionConfig
 
 import mmcv
 from mmcv.utils import print_log
@@ -35,6 +37,14 @@ from .utils import (
     draw_lidar_bbox3d_on_img,
     draw_lidar_bbox3d_on_bev,
 )
+
+def load_eval_config(eval_cfg_path):
+    # Load config file and deserialize it.
+    with open(eval_cfg_path, 'r') as f:
+        data = json.load(f)
+    cfg = DetectionConfig.deserialize(data)
+
+    return cfg
 
 def filter_boxes_not_visible_in_front_cam(nusc, boxes):
     # filter boxes to make sure that only boxes that should be visible in the front cam are used
@@ -223,6 +233,7 @@ class NuScenes3DDetTrackDataset(Dataset):
         modality=None,
         test_mode=False,
         det3d_eval_version="detection_cvpr_2019",
+        eval_cfg_path=None,
         track3d_eval_version="tracking_nips_2019",
         version="v1.0-trainval",
         use_valid_flag=False,
@@ -243,6 +254,7 @@ class NuScenes3DDetTrackDataset(Dataset):
         self.test_mode = test_mode
         self.modality = modality
         self.box_mode_3d = 0
+        self.eval_cfg_path = eval_cfg_path
 
         if classes is not None:
             self.CLASSES = classes
@@ -254,7 +266,11 @@ class NuScenes3DDetTrackDataset(Dataset):
 
         self.with_velocity = with_velocity
         self.det3d_eval_version = det3d_eval_version
-        self.det3d_eval_configs = det_configs(self.det3d_eval_version)
+        if self.eval_cfg_path:
+            self.det3d_eval_configs = load_eval_config(self.eval_cfg_path)
+        else:
+            self.det3d_eval_configs = det_configs(self.det3d_eval_version)
+        
         self.track3d_eval_version = track3d_eval_version
         self.track3d_eval_configs = track_configs(self.track3d_eval_version)
         if self.modality is None:
