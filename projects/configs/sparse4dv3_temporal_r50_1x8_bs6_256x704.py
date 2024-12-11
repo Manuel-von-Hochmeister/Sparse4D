@@ -60,12 +60,12 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 48
-num_gpus = 8
+total_batch_size = 1
+num_gpus = 1
 batch_size = total_batch_size // num_gpus
-num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
-num_epochs = 100
-checkpoint_epoch_interval = 20
+num_iters_per_epoch = int(1 // (num_gpus * batch_size))
+num_epochs = 1
+checkpoint_epoch_interval = 1
 
 checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
@@ -77,7 +77,7 @@ log_config = dict(
         dict(type="TensorboardLoggerHook"),
     ],
 )
-load_from = None
+load_from = "/home/vmn8si/repos/Sparse4D/ckpt/sparse4dv3_r50.pth"
 resume_from = None
 workflow = [("train", 1)]
 fp16 = dict(loss_scale=32.0)
@@ -389,7 +389,7 @@ data = dict(
     workers_per_gpu=batch_size,
     train=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes_infos_train.pkl",
+        ann_file=anno_root + "nuscenes-mini_infos_train.pkl",
         pipeline=train_pipeline,
         test_mode=False,
         data_aug_conf=data_aug_conf,
@@ -399,7 +399,7 @@ data = dict(
     ),
     val=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
@@ -408,7 +408,7 @@ data = dict(
     ),
     test=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes_infos_val.pkl",
+        ann_file=anno_root + "nuscenes-mini_infos_val.pkl",
         pipeline=test_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
@@ -453,5 +453,5 @@ vis_pipeline = [
 evaluation = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval,
     pipeline=vis_pipeline,
-    # out_dir="./vis",  # for visualization
+    jsonfile_prefix="/home/vmn8si/repos/Sparse4D/eval"
 )

@@ -8,21 +8,30 @@ print(sys.executable, os.path.abspath(__file__))
 import argparse
 import copy
 import mmcv
+import mmengine
 import time
 import torch
 import warnings
-from mmcv import Config, DictAction
-from mmcv.runner import get_dist_info, init_dist
+from mmengine.config import Config, DictAction
+from mmengine.dist import get_dist_info, init_dist
 from os import path as osp
 
-from mmdet import __version__ as mmdet_version
-from mmdet.apis import train_detector
-from mmdet.datasets import build_dataset
-from mmdet.models import build_detector
-from mmdet.utils import collect_env, get_root_logger
-from mmdet.apis import set_random_seed
+#from mmdet import __version__ as mmdet_version
+import pkg_resources
+
+# Get mmcv version dynamically
+mmcv_version = pkg_resources.parse_version(pkg_resources.get_distribution('mmcv').version)
+from mmengine.runner import Runner
+#from mmdet.datasets.builder import build_dataset
+#from mmdet.models import build_detector
+from mmdet.utils import collect_env
+from mmengine.logging import MMLogger
+#from mmdet.apis import set_random_seed
 from torch import distributed as dist
 from datetime import timedelta
+
+from mmdet.registry import DATASETS, MODELS
+from mmengine.registry import build_from_cfg
 
 import cv2
 
@@ -219,7 +228,7 @@ def main():
         cfg.gpu_ids = range(world_size)
 
     # create work_dir
-    mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
+    mmengine.utils.mkdir_or_exist(osp.abspath(cfg.work_dir))
     # dump config
     cfg.dump(osp.join(cfg.work_dir, osp.basename(args.config)))
     # init the logger before other steps
@@ -228,9 +237,7 @@ def main():
     # specify logger name, if we still use 'mmdet', the output info will be
     # filtered and won't be saved in the log_file
     # TODO: ugly workaround to judge whether we are training det or seg model
-    logger = get_root_logger(
-        log_file=log_file, log_level=cfg.log_level
-    )
+    logger = MMLogger.get_instance(name='mmdet', log_level=cfg.log_level)
 
     # init the meta dict to record some important information such as
     # environment info and seed, which will be logged
@@ -255,18 +262,18 @@ def main():
             f"Set random seed to {args.seed}, "
             f"deterministic: {args.deterministic}"
         )
-        set_random_seed(args.seed, deterministic=args.deterministic)
+        #set_random_seed(args.seed, deterministic=args.deterministic)
     cfg.seed = args.seed
     meta["seed"] = args.seed
     meta["exp_name"] = osp.basename(args.config)
 
-    model = build_detector(
-        cfg.model, train_cfg=cfg.get("train_cfg"), test_cfg=cfg.get("test_cfg")
+    model = build_from_cfg(
+        cfg.model, MODELS #, Strain_cfg=cfg.get("train_cfg"), test_cfg=cfg.get("test_cfg"), 
     )
     model.init_weights()
 
     logger.info(f"Model:\n{model}")
-    datasets = [build_dataset(cfg.data.train)]
+    datasets = [build_from_cfg(cfg.data.train, DATASETS)]
     if len(cfg.workflow) == 2:
         val_dataset = copy.deepcopy(cfg.data.val)
         # in case we use a dataset wrapper
@@ -278,7 +285,7 @@ def main():
         # which do not affect AP/AR calculation later
         # refer to https://mmdetection3d.readthedocs.io/en/latest/tutorials/customize_runtime.html#customize-workflow  # noqa
         val_dataset.test_mode = False
-        datasets.append(build_dataset(val_dataset))
+        datasets.append(build_from_cfg(val_dataset, DATASETS))
     if cfg.checkpoint_config is not None:
         # save mmdet version, config file content and class names in
         # checkpoints as meta data
@@ -300,15 +307,29 @@ def main():
             meta=meta,
         )
     else:
-        train_detector(
-            model,
-            datasets,
-            cfg,
-            distributed=distributed,
-            validate=(not args.no_validate),
-            timestamp=timestamp,
-            meta=meta,
+        # train_detector(
+        #     model,
+        #     datasets,
+        #     cfg,
+        #     distributed=distributed,
+        #     validate=(not args.no_validate),
+        #     timestamp=timestamp,
+        #     meta=meta,
+        # )
+        # Step 5: Initialize Runner
+        runner = Runner(
+            model=model,
+            train_dataloader=datasets[0],
+            val_dataloader=datasets[1] if len(datasets) > 1 else None,
+            work_dir=cfg.work_dir,
+            optim_wrapper=cfg.optim_wrapper,
+            logger=cfg.logger,
+            cfg=cfg,
+            randomness=dict(seed=cfg.seed)
         )
+
+        # Step 6: Start training
+        runner.train()
 
 
 if __name__ == "__main__":

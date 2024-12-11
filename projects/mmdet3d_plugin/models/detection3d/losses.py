@@ -1,13 +1,11 @@
 import torch
 import torch.nn as nn
 
-from mmcv.utils import build_from_cfg
-from mmdet.models.builder import LOSSES
+from mmengine.registry import build_from_cfg
 
 from projects.mmdet3d_plugin.core.box3d import *
 
 
-@LOSSES.register_module()
 class SparseBox3DLoss(nn.Module):
     def __init__(
         self,
@@ -23,9 +21,9 @@ class SparseBox3DLoss(nn.Module):
                 return None
             return build_from_cfg(cfg, registry)
 
-        self.loss_box = build(loss_box, LOSSES)
-        self.loss_cns = build(loss_centerness, LOSSES)
-        self.loss_yns = build(loss_yawness, LOSSES)
+        self.loss_box = build(loss_box)
+        self.loss_cns = build(loss_centerness)
+        self.loss_yns = build(loss_yawness)
         self.cls_allow_reverse = cls_allow_reverse
 
     def forward(

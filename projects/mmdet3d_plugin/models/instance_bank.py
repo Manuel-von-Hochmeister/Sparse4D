@@ -4,8 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 
-from mmcv.utils import build_from_cfg
-from mmcv.cnn.bricks.registry import PLUGIN_LAYERS
+from mmengine.registry import build_from_cfg
 
 __all__ = ["InstanceBank"]
 
@@ -22,7 +21,6 @@ def topk(confidence, k, *inputs):
     return confidence, outputs
 
 
-@PLUGIN_LAYERS.register_module()
 class InstanceBank(nn.Module):
     def __init__(
         self,
@@ -45,7 +43,7 @@ class InstanceBank(nn.Module):
         self.max_time_interval = max_time_interval
 
         if anchor_handler is not None:
-            anchor_handler = build_from_cfg(anchor_handler, PLUGIN_LAYERS)
+            anchor_handler = build_from_cfg(anchor_handler)
             assert hasattr(anchor_handler, "anchor_projection")
         self.anchor_handler = anchor_handler
         if isinstance(anchor, str):

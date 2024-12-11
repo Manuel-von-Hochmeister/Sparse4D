@@ -60,10 +60,10 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 2
+total_batch_size = 1
 num_gpus = 1
 batch_size = total_batch_size // num_gpus
-num_iters_per_epoch = int(1000 // (num_gpus * batch_size))
+num_iters_per_epoch = int(1 // (num_gpus * batch_size))
 num_epochs = 1
 checkpoint_epoch_interval = 1
 
@@ -71,14 +71,14 @@ checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
 )
 log_config = dict(
-    interval=50,
+    interval=51,
     hooks=[
         dict(type="TextLoggerHook", by_epoch=False),
         dict(type="TensorboardLoggerHook"),
     ],
 )
 load_from = "/home/vmn8si/repos/Sparse4D/ckpt/sparse4dv3_r50.pth"
-resume_from = None
+resume_from = "/home/vmn8si/repos/Sparse4D/ckpt/sparse4dv3_r50.pth"
 workflow = [("train", 1)]
 fp16 = dict(loss_scale=32.0)
 input_shape = (704, 256)
@@ -108,7 +108,7 @@ num_single_frame_decoder = 1
 use_deformable_func = True  # mmdet3d_plugin/ops/setup.py needs to be executed
 strides = [4, 8, 16, 32]
 num_levels = len(strides)
-num_depth_layers = 2
+num_depth_layers = 3
 drop_out = 0.1
 temporal = True
 decouple_attn = True
@@ -153,9 +153,9 @@ model = dict(
             type="InstanceBank",
             num_anchor=400,
             embed_dims=embed_dims,
-            anchor="nuscenes_kmeans400_range100.npy",
+            anchor="nuscenes_kmeans900_range55.npy",
             anchor_handler=dict(type="SparseBox3DKeyPointsGenerator"),
-            num_temp_instances=100 if temporal else -1,
+            num_temp_instances=200 if temporal else -1,
             confidence_decay=0.6,
             feat_grad=False,
         ),
@@ -177,7 +177,8 @@ model = dict(
                 "ffn",
                 "norm",
                 "refine",
-            ] * num_single_frame_decoder
+            ]
+            * num_single_frame_decoder
             + [
                 "temp_gnn",
                 "gnn",
@@ -186,8 +187,8 @@ model = dict(
                 "ffn",
                 "norm",
                 "refine",
-                "test"
-            ] * (num_decoder - num_single_frame_decoder)
+            ]
+            * (num_decoder - num_single_frame_decoder)
         )[2:],
         temp_graph_model=dict(
             type="MultiheadAttention",
@@ -296,9 +297,8 @@ model = dict(
 
 # ================== data ========================
 dataset_type = "NuScenes3DDetTrackDataset"
-data_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_cam/"
-anno_root = "/fs/scratch/CCSERVER_1803_244_ESV8_GPU_Users_la/vmn8si3/nuscenes/mini/nuscenes_anno_pkls/"
+data_root = "data/nuscenes/"
+anno_root = "data_fc/nuscenes_anno_pkls/"
 file_client_args = dict(backend="disk")
 
 img_norm_cfg = dict(

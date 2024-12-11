@@ -12,4 +12,5 @@ projects/mmdet3d_plugin/ops/build/*
 ckpt/*
 data/*
 work_dirs
-projects/mmdet3d_plugin/
+
+eval/*

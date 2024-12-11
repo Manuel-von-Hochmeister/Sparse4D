@@ -6,26 +6,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from mmcv.cnn.bricks.registry import (
-    ATTENTION,
-    PLUGIN_LAYERS,
-    POSITIONAL_ENCODING,
-    FEEDFORWARD_NETWORK,
-    NORM_LAYERS,
-)
-from mmcv.runner import BaseModule, force_fp32
-from mmcv.utils import build_from_cfg
-from mmdet.core.bbox.builder import BBOX_SAMPLERS
-from mmdet.core.bbox.builder import BBOX_CODERS
-from mmdet.models import HEADS, LOSSES
-from mmdet.core import reduce_mean
-
+# from mmcv.cnn.bricks.registry import (
+#     ATTENTION,
+#     POSITIONAL_ENCODING,
+#     FEEDFORWARD_NETWORK,
+#     NORM_LAYERS,
+# )
+from mmengine.model import BaseModule
+from mmengine.registry import build_from_cfg
+from mmdet.models.task_modules.builder import BBOX_CODERS, BBOX_SAMPLERS
+from mmdet.registry import MODELS
 from .blocks import DeformableFeatureAggregation as DFG
 
 __all__ = ["Sparse4DHead"]
 
 
-@HEADS.register_module()
+@MODELS.register_module()
 class Sparse4DHead(BaseModule):
     def __init__(
         self,
@@ -88,19 +84,19 @@ class Sparse4DHead(BaseModule):
                 return None
             return build_from_cfg(cfg, registry)
 
-        self.instance_bank = build(instance_bank, PLUGIN_LAYERS)
-        self.anchor_encoder = build(anchor_encoder, POSITIONAL_ENCODING)
+        self.instance_bank = build(instance_bank)
+        self.anchor_encoder = build(anchor_encoder)
         self.sampler = build(sampler, BBOX_SAMPLERS)
         self.decoder = build(decoder, BBOX_CODERS)
-        self.loss_cls = build(loss_cls, LOSSES)
-        self.loss_reg = build(loss_reg, LOSSES)
+        self.loss_cls = build(loss_cls)
+        self.loss_reg = build(loss_reg)
         self.op_config_map = {
-            "temp_gnn": [temp_graph_model, ATTENTION],
-            "gnn": [graph_model, ATTENTION],
-            "norm": [norm_layer, NORM_LAYERS],
-            "ffn": [ffn, FEEDFORWARD_NETWORK],
-            "deformable": [deformable_model, ATTENTION],
-            "refine": [refine_layer, PLUGIN_LAYERS],
+            "temp_gnn": [temp_graph_model],
+            "gnn": [graph_model],
+            "norm": [norm_layer],
+            "ffn": [ffn],
+            "deformable": [deformable_model],
+            "refine": [refine_layer],
         }
         self.layers = nn.ModuleList(
             [
@@ -407,7 +403,6 @@ class Sparse4DHead(BaseModule):
             output["instance_id"] = instance_id
         return output
 
-    @force_fp32(apply_to=("model_outs"))
     def loss(self, model_outs, data, feature_maps=None):
         # ===================== prediction losses ======================
         cls_scores = model_outs["classification"]
@@ -429,7 +424,7 @@ class Sparse4DHead(BaseModule):
             mask_valid = mask.clone()
 
             num_pos = max(
-                reduce_mean(torch.sum(mask).to(dtype=reg.dtype)), 1.0
+                torch.mean((torch.sum(mask).to(dtype=reg.dtype)), 1.0)
             )
             if self.cls_threshold_to_reg > 0:
                 threshold = self.cls_threshold_to_reg
@@ -529,7 +524,7 @@ class Sparse4DHead(BaseModule):
             dn_reg_target.shape[0], 1
         )
         num_dn_pos = max(
-            reduce_mean(torch.sum(dn_valid_mask).to(dtype=reg_weights.dtype)),
+            torch.mean(torch.sum(dn_valid_mask).to(dtype=reg_weights.dtype)),
             1.0,
         )
         return (
@@ -541,7 +536,6 @@ class Sparse4DHead(BaseModule):
             num_dn_pos,
         )
 
-    @force_fp32(apply_to=("model_outs"))
     def post_process(self, model_outs, output_idx=-1):
         return self.decoder.decode(
             model_outs["classification"],

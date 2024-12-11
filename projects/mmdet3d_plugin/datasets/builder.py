@@ -4,18 +4,81 @@ import random
 from functools import partial
 
 import numpy as np
-from mmcv.parallel import collate
-from mmcv.runner import get_dist_info
-from mmcv.utils import Registry, build_from_cfg
+from mmengine.dataset.utils import default_collate as collate
+from mmengine.dist import get_dist_info
+from mmengine.registry import build_from_cfg, Registry
 from torch.utils.data import DataLoader
+from mmdet.registry import DATASETS
 
-from mmdet.datasets.samplers import GroupSampler
 from projects.mmdet3d_plugin.datasets.samplers import (
     GroupInBatchSampler,
     DistributedGroupSampler,
     DistributedSampler,
     build_sampler
 )
+
+from torch.utils.data import Sampler
+
+
+def _concat_dataset(cfg, default_args=None):
+    from mmengine.dataset.dataset_wrapper import ConcatDataset
+    ann_files = cfg['ann_file']
+    img_prefixes = cfg.get('img_prefix', None)
+    seg_prefixes = cfg.get('seg_prefix', None)
+    proposal_files = cfg.get('proposal_file', None)
+    separate_eval = cfg.get('separate_eval', True)
+
+    datasets = []
+    num_dset = len(ann_files)
+    for i in range(num_dset):
+        data_cfg = copy.deepcopy(cfg)
+        # pop 'separate_eval' since it is not a valid key for common datasets.
+        if 'separate_eval' in data_cfg:
+            data_cfg.pop('separate_eval')
+        data_cfg['ann_file'] = ann_files[i]
+        if isinstance(img_prefixes, (list, tuple)):
+            data_cfg['img_prefix'] = img_prefixes[i]
+        if isinstance(seg_prefixes, (list, tuple)):
+            data_cfg['seg_prefix'] = seg_prefixes[i]
+        if isinstance(proposal_files, (list, tuple)):
+            data_cfg['proposal_file'] = proposal_files[i]
+        datasets.append(build_from_cfg(data_cfg, DATASETS, default_args))
+
+    return ConcatDataset(datasets, separate_eval)
+
+    return dataset
+
+class GroupSampler(Sampler):
+    """
+    A minimal custom implementation of GroupSampler for distributed group sampling.
+    """
+    def __init__(self, data_source, num_samples_per_group):
+        """
+        Args:
+            data_source (Dataset): Dataset from which indices will be sampled.
+            num_samples_per_group (int): Number of indices to sample per group.
+        """
+        self.data_source = data_source
+        self.num_samples_per_group = num_samples_per_group
+        self.num_samples = len(data_source)
+
+    def __iter__(self):
+        """
+        Sampler iterator that performs random sampling within groups.
+        """
+        # Shuffle the indices randomly
+        indices = list(range(self.num_samples))
+        random.shuffle(indices)
+
+        # Yield indices in groups of `num_samples_per_group`
+        for i in range(0, len(indices), self.num_samples_per_group):
+            yield indices[i:i + self.num_samples_per_group]
+
+    def __len__(self):
+        """
+        Returns the number of groups (total length divided by num_samples_per_group).
+        """
+        return (len(self.data_source) + self.num_samples_per_group - 1) // self.num_samples_per_group
 
 
 def build_dataloader(
@@ -133,10 +196,9 @@ def worker_init_fn(worker_id, num_workers, rank, seed):
 
 # Copyright (c) OpenMMLab. All rights reserved.
 import platform
-from mmcv.utils import Registry, build_from_cfg
+from mmengine.registry  import Registry, build_from_cfg, DATASETS
 
-from mmdet.datasets import DATASETS
-from mmdet.datasets.builder import _concat_dataset
+
 
 if platform.system() != "Windows":
     # https://github.com/pytorch/pytorch/issues/973

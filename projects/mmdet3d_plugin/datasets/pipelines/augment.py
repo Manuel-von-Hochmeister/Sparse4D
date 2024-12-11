@@ -3,11 +3,9 @@ import torch
 import numpy as np
 from numpy import random
 import mmcv
-from mmdet.datasets.builder import PIPELINES
 from PIL import Image
 
 
-@PIPELINES.register_module()
 class ResizeCropFlipImage(object):
     def __call__(self, results):
         aug_config = results.get("aug_config")
@@ -81,7 +79,6 @@ class ResizeCropFlipImage(object):
         return img, extend_matrix
 
 
-@PIPELINES.register_module()
 class BBoxRotation(object):
     def __call__(self, results):
         angle = results["aug_config"]["rotate_3d"]
@@ -126,7 +123,6 @@ class BBoxRotation(object):
         return bbox_3d
 
 
-@PIPELINES.register_module()
 class PhotoMetricDistortionMultiViewImage:
     """Apply photometric distortion to image sequentially, every transformation
     is applied with a probability of 0.5. The position of random contrast is in

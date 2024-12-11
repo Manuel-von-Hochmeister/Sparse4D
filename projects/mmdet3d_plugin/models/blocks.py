@@ -7,16 +7,11 @@ import torch.nn as nn
 from torch.cuda.amp.autocast_mode import autocast
 
 from mmcv.cnn import Linear, build_activation_layer, build_norm_layer
-from mmcv.runner.base_module import Sequential, BaseModule
+from mmengine.model import Sequential, BaseModule
 from mmcv.cnn.bricks.transformer import FFN
-from mmcv.utils import build_from_cfg
+from mmengine.registry import build_from_cfg
 from mmcv.cnn.bricks.drop import build_dropout
-from mmcv.cnn import xavier_init, constant_init
-from mmcv.cnn.bricks.registry import (
-    ATTENTION,
-    PLUGIN_LAYERS,
-    FEEDFORWARD_NETWORK,
-)
+from mmengine.model.weight_init import xavier_init, constant_init
 
 try:
     from ..ops import deformable_aggregation_function as DAF
@@ -43,7 +38,6 @@ def linear_relu_ln(embed_dims, in_loops, out_loops, input_dims=None):
     return layers
 
 
-@ATTENTION.register_module()
 class DeformableFeatureAggregation(BaseModule):
     def __init__(
         self,
@@ -85,7 +79,7 @@ class DeformableFeatureAggregation(BaseModule):
             if "embed_dims" not in temporal_fusion_module:
                 temporal_fusion_module["embed_dims"] = embed_dims
             self.temp_module = build_from_cfg(
-                temporal_fusion_module, PLUGIN_LAYERS
+                temporal_fusion_module
             )
         else:
             self.temp_module = None
@@ -262,7 +256,6 @@ class DeformableFeatureAggregation(BaseModule):
         return features
 
 
-@PLUGIN_LAYERS.register_module()
 class DenseDepthNet(BaseModule):
     def __init__(
         self,
@@ -323,7 +316,6 @@ class DenseDepthNet(BaseModule):
         return loss
 
 
-@FEEDFORWARD_NETWORK.register_module()
 class AsymmetricFFN(BaseModule):
     def __init__(
         self,

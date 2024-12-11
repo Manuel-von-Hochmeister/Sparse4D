@@ -3,15 +3,10 @@ from inspect import signature
 
 import torch
 
-from mmcv.runner import force_fp32, auto_fp16
-from mmcv.utils import build_from_cfg
-from mmcv.cnn.bricks.registry import PLUGIN_LAYERS
+#from mmcv.runner import force_fp32, auto_fp16
+from mmengine.registry import build_from_cfg
 from mmdet.models import (
-    DETECTORS,
     BaseDetector,
-    build_backbone,
-    build_head,
-    build_neck,
 )
 from .grid_mask import GridMask
 
@@ -23,8 +18,12 @@ except:
 
 __all__ = ["Sparse4D"]
 
+from mmdet.models.backbones.resnet import ResNet
+from mmdet.models.necks.fpn import FPN
+from projects.mmdet3d_plugin.models.sparse4d_head import Sparse4DHead
+from mmdet.registry import MODELS
 
-@DETECTORS.register_module()
+@MODELS.register_module()
 class Sparse4D(BaseDetector):
     def __init__(
         self,
@@ -42,16 +41,16 @@ class Sparse4D(BaseDetector):
         super(Sparse4D, self).__init__(init_cfg=init_cfg)
         if pretrained is not None:
             backbone.pretrained = pretrained
-        self.img_backbone = build_backbone(img_backbone)
+        self.img_backbone = ResNet(**img_backbone)
         if img_neck is not None:
-            self.img_neck = build_neck(img_neck)
-        self.head = build_head(head)
+            self.img_neck = FPN(img_neck)
+        self.head = Sparse4DHead(head)
         self.use_grid_mask = use_grid_mask
         if use_deformable_func:
             assert DAF_VALID, "deformable_aggregation needs to be set up."
         self.use_deformable_func = use_deformable_func
         if depth_branch is not None:
-            self.depth_branch = build_from_cfg(depth_branch, PLUGIN_LAYERS)
+            self.depth_branch = build_from_cfg(depth_branch)
         else:
             self.depth_branch = None
         if use_grid_mask:
@@ -59,9 +58,9 @@ class Sparse4D(BaseDetector):
                 True, True, rotate=1, offset=False, ratio=0.5, mode=1, prob=0.7
             )
 
-    @auto_fp16(apply_to=("img",), out_fp32=True)
     def extract_feat(self, img, return_depth=False, metas=None):
         bs = img.shape[0]
+        img = img.to(dtype=torch.float16)
         if img.dim() == 5:  # multi-view
             num_cams = img.shape[1]
             img = img.flatten(end_dim=1)
@@ -89,12 +88,19 @@ class Sparse4D(BaseDetector):
             return feature_maps, depths
         return feature_maps
 
-    @force_fp32(apply_to=("img",))
-    def forward(self, img, **data):
+    def _forward(self, img, **data):
         if self.training:
-            return self.forward_train(img, **data)
+            return self.forward_train(img.to(dtype=torch.float32), **data)
         else:
-            return self.forward_test(img, **data)
+            return self.forward_test(img.to(dtype=torch.float32), **data)
+    
+    def loss(self, x, y):
+        # Implement loss computation
+        pass
+
+    def predict(self, x):
+        # Implement prediction
+        pass
 
     def forward_train(self, img, **data):
         feature_maps, depths = self.extract_feat(img, True, data)

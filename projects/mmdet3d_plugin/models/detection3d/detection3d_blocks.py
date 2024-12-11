@@ -2,13 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from mmcv.cnn import Linear, Scale, bias_init_with_prob
-from mmcv.runner.base_module import Sequential, BaseModule
-from mmcv.cnn import xavier_init
-from mmcv.cnn.bricks.registry import (
-    PLUGIN_LAYERS,
-    POSITIONAL_ENCODING,
-)
+from mmcv.cnn import Linear, Scale
+from mmengine.model import bias_init_with_prob, Sequential, BaseModule, xavier_init
 
 from projects.mmdet3d_plugin.core.box3d import *
 from ..blocks import linear_relu_ln
@@ -20,7 +15,6 @@ __all__ = [
 ]
 
 
-@POSITIONAL_ENCODING.register_module()
 class SparseBox3DEncoder(BaseModule):
     def __init__(
         self,
@@ -74,7 +68,6 @@ class SparseBox3DEncoder(BaseModule):
         return output
 
 
-@PLUGIN_LAYERS.register_module()
 class SparseBox3DRefinementModule(BaseModule):
     def __init__(
         self,
@@ -156,7 +149,6 @@ class SparseBox3DRefinementModule(BaseModule):
         return output, cls, quality
 
 
-@PLUGIN_LAYERS.register_module()
 class SparseBox3DKeyPointsGenerator(BaseModule):
     def __init__(
         self,

@@ -9,30 +9,41 @@ import warnings
 import numpy as np
 import torch
 import torch.distributed as dist
-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
-from mmcv.runner import (
-    HOOKS,
-    DistSamplerSeedHook,
-    EpochBasedRunner,
-    Fp16OptimizerHook,
-    OptimizerHook,
-    build_optimizer,
-    build_runner,
-    get_dist_info,
-)
-from mmcv.utils import build_from_cfg
+from torch.nn import DataParallel as MMDataParallel
+from mmengine.model.wrappers.distributed import MMDistributedDataParallel
+from mmengine.registry import HOOKS
+# from mmengine.runner import (
+#     DistSamplerSeedHook,
+#     EpochBasedRunner,
+#     Fp16OptimizerHook,
+#     OptimizerHook,
+#     build_optimizer,
+#     build_runner,
+#     get_dist_info,
+# )
+from mmengine.registry import build_from_cfg
 
-from mmdet.core import EvalHook
+# from mmengine.hooks import EvalHook
 
-from mmdet.datasets import build_dataset, replace_ImageToTensor
-from mmdet.utils import get_root_logger
+from mmcv.transforms import ToTensor
+from mmengine.logging import MMLogger
 import time
 import os.path as osp
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
-from projects.mmdet3d_plugin.core.evaluation.eval_hooks import (
-    CustomDistEvalHook,
-)
+# from projects.mmdet3d_plugin.core.evaluation.eval_hooks import (
+#    CustomDistEvalHook,
+# )
 from projects.mmdet3d_plugin.datasets import custom_build_dataset
+from mmengine.runner import Runner
+
+from mmdet.registry import DATASETS
+
+# Replace `ImageToTensor` with `ToTensor`
+def replace_image_to_tensor(pipeline):
+    for step in pipeline:
+        if step['type'] == 'ImageToTensor':
+            step['type'] = 'ToTensor'  # Replace transform type
+    return pipeline
 
 
 def custom_train_detector(
@@ -44,7 +55,7 @@ def custom_train_detector(
     timestamp=None,
     meta=None,
 ):
-    logger = get_root_logger(cfg.log_level)
+    logger = MMLogger.get_instance(name='mmdet', log_level=cfg.log_level)
 
     # prepare data loaders
 
@@ -123,7 +134,7 @@ def custom_train_detector(
         if "total_epochs" in cfg:
             assert cfg.total_epochs == cfg.runner.max_epochs
 
-    runner = build_runner(
+    runner = Runner(
         cfg.runner,
         default_args=dict(
             model=model,
@@ -173,7 +184,7 @@ def custom_train_detector(
         if val_samples_per_gpu > 1:
             assert False
             # Replace 'ImageToTensor' to 'DefaultFormatBundle'
-            cfg.data.val.pipeline = replace_ImageToTensor(
+            cfg.data.val.pipeline = replace_image_to_tensor(
                 cfg.data.val.pipeline
             )
         val_dataset = custom_build_dataset(cfg.data.val, dict(test_mode=True))

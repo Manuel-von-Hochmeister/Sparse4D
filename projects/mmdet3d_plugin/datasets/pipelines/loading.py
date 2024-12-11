@@ -1,9 +1,7 @@
 import numpy as np
 import mmcv
-from mmdet.datasets.builder import PIPELINES
 
 
-@PIPELINES.register_module()
 class LoadMultiViewImageFromFiles(object):
     """Load multi channel images from a list of separate channel files.
 
@@ -70,7 +68,6 @@ class LoadMultiViewImageFromFiles(object):
         return repr_str
 
 
-@PIPELINES.register_module()
 class LoadPointsFromFile(object):
     """Load Points From File.
 

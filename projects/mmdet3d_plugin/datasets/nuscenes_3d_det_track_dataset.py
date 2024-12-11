@@ -30,9 +30,9 @@ from pyquaternion import Quaternion
 from nuscenes.eval.detection.data_classes import DetectionConfig
 
 import mmcv
-from mmcv.utils import print_log
-from mmdet.datasets import DATASETS
-from mmdet.datasets.pipelines import Compose
+from mmengine.logging import print_log
+from mmdet.registry  import DATASETS
+from mmengine.dataset import Compose
 from .utils import (
     draw_lidar_bbox3d_on_img,
     draw_lidar_bbox3d_on_bev,
