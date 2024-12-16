@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from mmengine.registry import build_from_cfg
+from mmdet.registry import MODELS
 
 __all__ = ["InstanceBank"]
 
@@ -20,7 +21,7 @@ def topk(confidence, k, *inputs):
         outputs.append(input.flatten(end_dim=1)[indices].reshape(bs, k, -1))
     return confidence, outputs
 
-
+@MODELS.register_module()
 class InstanceBank(nn.Module):
     def __init__(
         self,
@@ -43,7 +44,7 @@ class InstanceBank(nn.Module):
         self.max_time_interval = max_time_interval
 
         if anchor_handler is not None:
-            anchor_handler = build_from_cfg(anchor_handler)
+            anchor_handler = MODELS.build(anchor_handler)
             assert hasattr(anchor_handler, "anchor_projection")
         self.anchor_handler = anchor_handler
         if isinstance(anchor, str):

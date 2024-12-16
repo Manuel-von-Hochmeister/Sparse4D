@@ -41,16 +41,16 @@ class Sparse4D(BaseDetector):
         super(Sparse4D, self).__init__(init_cfg=init_cfg)
         if pretrained is not None:
             backbone.pretrained = pretrained
-        self.img_backbone = ResNet(**img_backbone)
+        self.img_backbone = MODELS.build(img_backbone)
         if img_neck is not None:
-            self.img_neck = FPN(img_neck)
-        self.head = Sparse4DHead(head)
+            self.img_neck = MODELS.build(img_neck)
+        self.head = MODELS.build(head)
         self.use_grid_mask = use_grid_mask
         if use_deformable_func:
             assert DAF_VALID, "deformable_aggregation needs to be set up."
         self.use_deformable_func = use_deformable_func
         if depth_branch is not None:
-            self.depth_branch = build_from_cfg(depth_branch)
+            self.depth_branch = MODELS.build(depth_branch)
         else:
             self.depth_branch = None
         if use_grid_mask:

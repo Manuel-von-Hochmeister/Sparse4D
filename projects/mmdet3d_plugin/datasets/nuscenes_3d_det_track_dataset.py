@@ -31,7 +31,8 @@ from nuscenes.eval.detection.data_classes import DetectionConfig
 
 import mmcv
 from mmengine.logging import print_log
-from mmdet.registry  import DATASETS
+from mmengine.fileio import load
+from mmengine.registry  import DATASETS
 from mmengine.dataset import Compose
 from .utils import (
     draw_lidar_bbox3d_on_img,
@@ -421,7 +422,7 @@ class NuScenes3DDetTrackDataset(Dataset):
         return cat_ids
 
     def load_annotations(self, ann_file):
-        data = mmcv.load(ann_file, file_format="pkl")
+        data = load(ann_file, file_format="pkl")
         data_infos = list(sorted(data["infos"], key=lambda e: e["timestamp"]))
         data_infos = data_infos[:: self.load_interval]
         self.metadata = data["metadata"]
@@ -516,7 +517,7 @@ class NuScenes3DDetTrackDataset(Dataset):
             gt_names=gt_names_3d,
         )
         if "instance_inds" in info:
-            instance_inds = np.array(info["instance_inds"], dtype=np.int)[mask]
+            instance_inds = np.array(info["instance_inds"], dtype=np.int32)[mask]
             anns_results["instance_inds"] = instance_inds
         return anns_results
 

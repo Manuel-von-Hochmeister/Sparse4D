@@ -16,7 +16,7 @@ from mmengine.config import Config, DictAction
 from mmengine.dist import get_dist_info, init_dist
 from os import path as osp
 
-#from mmdet import __version__ as mmdet_version
+from mmdet import __version__ as mmdet_version
 import pkg_resources
 
 # Get mmcv version dynamically

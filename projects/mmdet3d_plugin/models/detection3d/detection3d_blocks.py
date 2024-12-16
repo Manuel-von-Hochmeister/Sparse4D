@@ -4,6 +4,7 @@ import numpy as np
 
 from mmcv.cnn import Linear, Scale
 from mmengine.model import bias_init_with_prob, Sequential, BaseModule, xavier_init
+from mmdet.registry import MODELS
 
 from projects.mmdet3d_plugin.core.box3d import *
 from ..blocks import linear_relu_ln
@@ -15,6 +16,7 @@ __all__ = [
 ]
 
 
+@MODELS.register_module()
 class SparseBox3DEncoder(BaseModule):
     def __init__(
         self,
@@ -68,6 +70,7 @@ class SparseBox3DEncoder(BaseModule):
         return output
 
 
+@MODELS.register_module()
 class SparseBox3DRefinementModule(BaseModule):
     def __init__(
         self,
@@ -149,6 +152,7 @@ class SparseBox3DRefinementModule(BaseModule):
         return output, cls, quality
 
 
+@MODELS.register_module()
 class SparseBox3DKeyPointsGenerator(BaseModule):
     def __init__(
         self,

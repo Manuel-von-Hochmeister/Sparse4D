@@ -79,17 +79,17 @@ class Sparse4DHead(BaseModule):
         self.operation_order = operation_order
 
         # =========== build modules ===========
-        def build(cfg, registry):
-            if cfg is None:
-                return None
-            return build_from_cfg(cfg, registry)
+        # def build(cfg, registry):
+        #     if cfg is None:
+        #         return None
+        #     return build_from_cfg(cfg, registry)
 
-        self.instance_bank = build(instance_bank)
-        self.anchor_encoder = build(anchor_encoder)
-        self.sampler = build(sampler, BBOX_SAMPLERS)
-        self.decoder = build(decoder, BBOX_CODERS)
-        self.loss_cls = build(loss_cls)
-        self.loss_reg = build(loss_reg)
+        self.instance_bank = MODELS.build(instance_bank)
+        self.anchor_encoder = MODELS.build(anchor_encoder)
+        self.sampler = BBOX_SAMPLERS.build(sampler)
+        self.decoder = BBOX_CODERS.build(decoder)
+        self.loss_cls = MODELS.build(loss_cls)
+        self.loss_reg = MODELS.build(loss_reg)
         self.op_config_map = {
             "temp_gnn": [temp_graph_model],
             "gnn": [graph_model],
@@ -100,7 +100,7 @@ class Sparse4DHead(BaseModule):
         }
         self.layers = nn.ModuleList(
             [
-                build(*self.op_config_map.get(op, [None, None]))
+                MODELS.build(*self.op_config_map.get(op, [None, None]))
                 for op in self.operation_order
             ]
         )

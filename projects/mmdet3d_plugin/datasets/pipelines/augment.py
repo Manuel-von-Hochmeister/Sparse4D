@@ -4,8 +4,9 @@ import numpy as np
 from numpy import random
 import mmcv
 from PIL import Image
+from mmengine.registry import TRANSFORMS
 
-
+@TRANSFORMS.register_module()
 class ResizeCropFlipImage(object):
     def __call__(self, results):
         aug_config = results.get("aug_config")
@@ -79,6 +80,7 @@ class ResizeCropFlipImage(object):
         return img, extend_matrix
 
 
+@TRANSFORMS.register_module()
 class BBoxRotation(object):
     def __call__(self, results):
         angle = results["aug_config"]["rotate_3d"]
@@ -122,7 +124,7 @@ class BBoxRotation(object):
             bbox_3d[:, 7:] = bbox_3d[:, 7:] @ rot_mat_T[:vel_dims, :vel_dims]
         return bbox_3d
 
-
+@TRANSFORMS.register_module()
 class PhotoMetricDistortionMultiViewImage:
     """Apply photometric distortion to image sequentially, every transformation
     is applied with a probability of 0.5. The position of random contrast is in

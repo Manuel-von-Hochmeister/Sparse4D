@@ -1,8 +1,11 @@
 import numpy as np
 import mmcv
+import torch
 from mmcv import to_tensor
+from mmengine.registry import TRANSFORMS
 
 
+@TRANSFORMS.register_module()
 class MultiScaleDepthMapGenerator(object):
     def __init__(self, downsample=1, max_depth=60):
         if not isinstance(downsample, (list, tuple)):
@@ -52,6 +55,7 @@ class MultiScaleDepthMapGenerator(object):
         return input_dict
 
 
+@TRANSFORMS.register_module()
 class NuScenesSparse4DAdaptor(object):
     def __init(self):
         pass
@@ -80,10 +84,10 @@ class NuScenesSparse4DAdaptor(object):
             input_dict["gt_bboxes_3d"][:, 6] = self.limit_period(
                 input_dict["gt_bboxes_3d"][:, 6], offset=0.5, period=2 * np.pi
             )
-            input_dict["gt_bboxes_3d"] = to_tensor(input_dict["gt_bboxes_3d"]).float()
+            input_dict["gt_bboxes_3d"] = torch.tensor(input_dict["gt_bboxes_3d"], dtype=torch.float32)
             
         if "gt_labels_3d" in input_dict:
-            input_dict["gt_labels_3d"] = to_tensor(input_dict["gt_labels_3d"]).long()
+            input_dict["gt_labels_3d"] = torch.tensor(input_dict["gt_labels_3d"], dtype=torch.float64)
 
         imgs = [img.transpose(2, 0, 1) for img in input_dict["img"]]
         imgs = np.ascontiguousarray(np.stack(imgs, axis=0))
@@ -97,6 +101,7 @@ class NuScenesSparse4DAdaptor(object):
         return limited_val
 
 
+@TRANSFORMS.register_module()
 class InstanceNameFilter(object):
     """Filter GT objects by their names.
 
@@ -138,6 +143,7 @@ class InstanceNameFilter(object):
         return repr_str
 
 
+@TRANSFORMS.register_module()
 class CircleObjectRangeFilter(object):
     def __init__(
         self, class_dist_thred=[52.5] * 5 + [31.5] + [42] * 3 + [31.5]
@@ -174,6 +180,7 @@ class CircleObjectRangeFilter(object):
         return repr_str
 
 
+@TRANSFORMS.register_module()
 class NormalizeMultiviewImage(object):
     """Normalize the image.
     Added key is "img_norm_cfg".

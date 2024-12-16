@@ -1,7 +1,9 @@
 import numpy as np
 import mmcv
+from mmengine.fileio import FileClient
+from mmengine.registry import TRANSFORMS
 
-
+@TRANSFORMS.register_module()
 class LoadMultiViewImageFromFiles(object):
     """Load multi channel images from a list of separate channel files.
 
@@ -68,6 +70,7 @@ class LoadMultiViewImageFromFiles(object):
         return repr_str
 
 
+@TRANSFORMS.register_module()
 class LoadPointsFromFile(object):
     """Load Points From File.
 
@@ -128,7 +131,7 @@ class LoadPointsFromFile(object):
             np.ndarray: An array containing point clouds data.
         """
         if self.file_client is None:
-            self.file_client = mmcv.FileClient(**self.file_client_args)
+            self.file_client = FileClient(**self.file_client_args)
         try:
             pts_bytes = self.file_client.get(pts_filename)
             points = np.frombuffer(pts_bytes, dtype=np.float32)

@@ -67,6 +67,12 @@ num_iters_per_epoch = int(1 // (num_gpus * batch_size))
 num_epochs = 1
 checkpoint_epoch_interval = 1
 
+train_cfg = dict(
+    type="EpochBasedTrainLoop",
+    max_epochs=1,
+    val_interval=1
+)
+
 checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
 )
@@ -119,7 +125,7 @@ model = dict(
     use_grid_mask=True,
     use_deformable_func=use_deformable_func,
     img_backbone=dict(
-        #type="ResNet",
+        type="ResNet",
         depth=101,
         num_stages=4,
         frozen_stages=-1,
@@ -327,36 +333,12 @@ train_pipeline = [
     ),
     dict(type="InstanceNameFilter", classes=class_names),
     dict(type="NuScenesSparse4DAdaptor"),
-    dict(
-        type="Collect",
-        keys=[
-            "img",
-            "timestamp",
-            "projection_mat",
-            "image_wh",
-            "gt_depth",
-            "focal",
-            "gt_bboxes_3d",
-            "gt_labels_3d",
-        ],
-        meta_keys=["T_global", "T_global_inv", "timestamp", "instance_id"],
-    ),
 ]
 test_pipeline = [
     dict(type="LoadMultiViewImageFromFiles", to_float32=True),
     dict(type="ResizeCropFlipImage"),
     dict(type="NormalizeMultiviewImage", **img_norm_cfg),
     dict(type="NuScenesSparse4DAdaptor"),
-    dict(
-        type="Collect",
-        keys=[
-            "img",
-            "timestamp",
-            "projection_mat",
-            "image_wh",
-        ],
-        meta_keys=["T_global", "T_global_inv", "timestamp"],
-    ),
 ]
 
 input_modality = dict(
@@ -423,13 +405,20 @@ data = dict(
 # ================== training ========================
 optimizer = dict(
     type="AdamW",
-    lr=6e-4,
-    weight_decay=0.001,
-    paramwise_cfg=dict(
-        custom_keys={
-            "img_backbone": dict(lr_mult=0.5),
+    params=[
+        # Backbone parameters - higher learning rate
+        {
+            'module_name': "img_backbone",  # Backbone parameters
+            'lr': 1.5e-4,                             # Learning rate for backbone
+            'weight_decay': 0.0001                  # Weight decay for backbone
+        },
+        # Head parameters - lower learning rate
+        {
+            'module_name': "head",  # Head parameters
+            'lr': 3e-4,                         # Learning rate for head
+            'weight_decay': 0.0001              # Weight decay for head
         }
-    ),
+    ]
 )
 optimizer_config = dict(grad_clip=dict(max_norm=25, norm_type=2))
 lr_config = dict(
@@ -447,11 +436,6 @@ runner = dict(
 # ================== eval ========================
 vis_pipeline = [
     dict(type="LoadMultiViewImageFromFiles", to_float32=True),
-    dict(
-        type="Collect",
-        keys=["img"],
-        meta_keys=["timestamp", "lidar2img"],
-    ),
 ]
 evaluation = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval,

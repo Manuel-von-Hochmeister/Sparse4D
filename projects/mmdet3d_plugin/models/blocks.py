@@ -12,6 +12,10 @@ from mmcv.cnn.bricks.transformer import FFN
 from mmengine.registry import build_from_cfg
 from mmcv.cnn.bricks.drop import build_dropout
 from mmengine.model.weight_init import xavier_init, constant_init
+from mmdet.registry import MODELS
+
+
+from ..ops import deformable_aggregation_function as DAF
 
 try:
     from ..ops import deformable_aggregation_function as DAF
@@ -38,6 +42,7 @@ def linear_relu_ln(embed_dims, in_loops, out_loops, input_dims=None):
     return layers
 
 
+@MODELS.register_module()
 class DeformableFeatureAggregation(BaseModule):
     def __init__(
         self,
@@ -73,12 +78,12 @@ class DeformableFeatureAggregation(BaseModule):
         self.residual_mode = residual_mode
         self.proj_drop = nn.Dropout(proj_drop)
         kps_generator["embed_dims"] = embed_dims
-        self.kps_generator = build_from_cfg(kps_generator, PLUGIN_LAYERS)
+        self.kps_generator = MODELS.build(kps_generator)
         self.num_pts = self.kps_generator.num_pts
         if temporal_fusion_module is not None:
             if "embed_dims" not in temporal_fusion_module:
                 temporal_fusion_module["embed_dims"] = embed_dims
-            self.temp_module = build_from_cfg(
+            self.temp_module = MODELS.build(
                 temporal_fusion_module
             )
         else:
@@ -256,6 +261,7 @@ class DeformableFeatureAggregation(BaseModule):
         return features
 
 
+@MODELS.register_module()
 class DenseDepthNet(BaseModule):
     def __init__(
         self,
@@ -316,6 +322,7 @@ class DenseDepthNet(BaseModule):
         return loss
 
 
+@MODELS.register_module()
 class AsymmetricFFN(BaseModule):
     def __init__(
         self,

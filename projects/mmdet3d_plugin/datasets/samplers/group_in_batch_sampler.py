@@ -63,6 +63,7 @@ class GroupInBatchSampler(Sampler):
         seed=0,
         skip_prob=0.5,
         sequence_flip_prob=0.1,
+        sampler=None,
     ):
         _rank, _world_size = get_dist_info()
         if world_size is None:
@@ -105,6 +106,7 @@ class GroupInBatchSampler(Sampler):
         self.aug_per_local_sample = [None for _ in range(self.batch_size)]
         self.skip_prob = skip_prob
         self.sequence_flip_prob = sequence_flip_prob
+        self.sampler = sampler
 
     def _infinite_group_indices(self):
         g = torch.Generator()
@@ -175,4 +177,4 @@ class GroupInBatchSampler(Sampler):
         return self.size
 
     def set_epoch(self, epoch):
-        self.epoch = epoch
+        self.sampler.set_epoch(epoch)

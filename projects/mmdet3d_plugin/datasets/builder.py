@@ -17,7 +17,7 @@ from projects.mmdet3d_plugin.datasets.samplers import (
     build_sampler
 )
 
-from torch.utils.data import Sampler
+from torch.utils.data import Sampler, RandomSampler
 
 
 def _concat_dataset(cfg, default_args=None):
@@ -115,12 +115,14 @@ def build_dataloader(
     batch_sampler = None
     if runner_type == 'IterBasedRunner':
         print("Use GroupInBatchSampler !!!")
+        sampler = RandomSampler(dataset)
         batch_sampler = GroupInBatchSampler(
             dataset,
             samples_per_gpu,
             world_size,
             rank,
             seed=seed,
+            sampler=sampler,
         )
         batch_size = 1
         sampler = None
@@ -218,11 +220,8 @@ def custom_build_dataset(cfg, default_args=None):
         from mmdet3d.datasets.dataset_wrappers import CBGSDataset
     except:
         CBGSDataset = None
-    from mmdet.datasets.dataset_wrappers import (
-        ClassBalancedDataset,
-        ConcatDataset,
-        RepeatDataset,
-    )
+    from mmengine.dataset import ConcatDataset, RepeatDataset, ClassBalancedDataset
+
 
     if isinstance(cfg, (list, tuple)):
         dataset = ConcatDataset(
