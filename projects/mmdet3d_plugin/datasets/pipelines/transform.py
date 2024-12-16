@@ -70,9 +70,9 @@ class NuScenesSparse4DAdaptor(object):
         input_dict["T_global_inv"] = np.linalg.inv(input_dict["lidar2global"])
         input_dict["T_global"] = input_dict["lidar2global"]
         if "cam_intrinsic" in input_dict:
-            input_dict["cam_intrinsic"] = np.float32(
+            input_dict["cam_intrinsic"] = torch.tensor(np.float32(
                 np.stack(input_dict["cam_intrinsic"])
-            )
+            ), dtype=torch.float32)
             input_dict["focal"] = input_dict["cam_intrinsic"][..., 0, 0]
             # input_dict["focal"] = np.sqrt(
             #     np.abs(np.linalg.det(input_dict["cam_intrinsic"][:, :2, :2]))
@@ -91,7 +91,27 @@ class NuScenesSparse4DAdaptor(object):
 
         imgs = [img.transpose(2, 0, 1) for img in input_dict["img"]]
         imgs = np.ascontiguousarray(np.stack(imgs, axis=0))
-        input_dict["img"] = to_tensor(imgs)
+        input_dict["img"] = torch.tensor(imgs, dtype=torch.float32)
+
+        # change all numpy arrays to tensors
+        def convert_to_tensor(input):
+            if hasattr(input, "dtype") and input.dtype == np.int32:
+                return torch.tensor(input, dtype=torch.int32)
+            elif hasattr(input, "dtype") and input.dtype == np.float32:
+                return torch.tensor(input, dtype=torch.float32)
+            else:
+                return input
+            
+        input_dict["gt_names"] = input_dict["gt_names"].tolist()
+        for k,v in input_dict.items():
+            if isinstance(v, list):
+                input_dict[k] = [convert_to_tensor(x) for x in v]
+            elif isinstance(v, dict):
+                input_dict[k] = {kk: convert_to_tensor(vv) for kk, vv in v.items()}
+            else:
+                input_dict[k] = convert_to_tensor(v)
+
+
         return input_dict
 
     def limit_period(
