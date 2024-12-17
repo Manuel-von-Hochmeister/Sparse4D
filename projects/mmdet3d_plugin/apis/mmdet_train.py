@@ -5,6 +5,7 @@
 # ---------------------------------------------
 import random
 import warnings
+from typing import Union, Dict
 
 import numpy as np
 import torch
@@ -36,9 +37,17 @@ from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 from projects.mmdet3d_plugin.datasets import custom_build_dataset
 from mmengine.runner import Runner
 from mmengine.optim import AmpOptimWrapper
+from mmengine.optim import OptimWrapper
 
 from mmdet.registry import DATASETS
 
+
+class MMDataParallelFix(MMDataParallel):
+    def train_step(self, data: Union[dict, tuple, list],
+                   optim_wrapper: OptimWrapper) -> Dict[str, torch.Tensor]:
+        return self.module.train_step(data, optim_wrapper)
+    
+    
 # Replace `ImageToTensor` with `ToTensor`
 def replace_image_to_tensor(pipeline):
     for step in pipeline:
@@ -114,7 +123,7 @@ def custom_train_detector(
         )
 
     else:
-        model = MMDataParallel(
+        model = MMDataParallelFix(
             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids
         )
 

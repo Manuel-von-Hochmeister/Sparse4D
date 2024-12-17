@@ -87,7 +87,7 @@ class NuScenesSparse4DAdaptor(object):
             input_dict["gt_bboxes_3d"] = torch.tensor(input_dict["gt_bboxes_3d"], dtype=torch.float32)
             
         if "gt_labels_3d" in input_dict:
-            input_dict["gt_labels_3d"] = torch.tensor(input_dict["gt_labels_3d"], dtype=torch.float64)
+            input_dict["gt_labels_3d"] = torch.tensor(input_dict["gt_labels_3d"], dtype=torch.int64)
 
         imgs = [img.transpose(2, 0, 1) for img in input_dict["img"]]
         imgs = np.ascontiguousarray(np.stack(imgs, axis=0))

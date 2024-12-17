@@ -189,11 +189,8 @@ class Sparse4DHead(BaseModule):
         dn_metas = None
         temp_dn_reg_target = None
         if self.training and hasattr(self.sampler, "get_dn_anchors"):
-            if "instance_id" in metas["img_metas"][0]:
-                gt_instance_id = [
-                    torch.from_numpy(x["instance_id"]).cuda()
-                    for x in metas["img_metas"]
-                ]
+            if "instance_id" in metas:
+                gt_instance_id = metas["instance_id"]                
             else:
                 gt_instance_id = None
             dn_metas = self.sampler.get_dn_anchors(
@@ -424,7 +421,7 @@ class Sparse4DHead(BaseModule):
             mask_valid = mask.clone()
 
             num_pos = max(
-                torch.mean((torch.sum(mask).to(dtype=reg.dtype)), 1.0)
+                torch.mean((torch.sum(mask).to(dtype=reg.dtype))), 1.0
             )
             if self.cls_threshold_to_reg > 0:
                 threshold = self.cls_threshold_to_reg

@@ -59,34 +59,35 @@ class Sparse4D(BaseDetector):
             )
 
     def extract_feat(self, img, return_depth=False, metas=None):
-        bs = img.shape[0]
-        img = img.to(dtype=torch.float16)
-        if img.dim() == 5:  # multi-view
-            num_cams = img.shape[1]
-            img = img.flatten(end_dim=1)
-        else:
-            num_cams = 1
-        if self.use_grid_mask:
-            img = self.grid_mask(img)
-        if "metas" in signature(self.img_backbone.forward).parameters:
-            feature_maps = self.img_backbone(img, num_cams, metas=metas)
-        else:
-            feature_maps = self.img_backbone(img)
-        if self.img_neck is not None:
-            feature_maps = list(self.img_neck(feature_maps))
-        for i, feat in enumerate(feature_maps):
-            feature_maps[i] = torch.reshape(
-                feat, (bs, num_cams) + feat.shape[1:]
-            )
-        if return_depth and self.depth_branch is not None:
-            depths = self.depth_branch(feature_maps, metas.get("focal"))
-        else:
-            depths = None
-        if self.use_deformable_func:
-            feature_maps = feature_maps_format(feature_maps)
-        if return_depth:
-            return feature_maps, depths
-        return feature_maps
+        with torch.cuda.amp.autocast():
+            bs = img.shape[0]
+            img = img.to(dtype=torch.float16)
+            if img.dim() == 5:  # multi-view
+                num_cams = img.shape[1]
+                img = img.flatten(end_dim=1)
+            else:
+                num_cams = 1
+            if self.use_grid_mask:
+                img = self.grid_mask(img)
+            if "metas" in signature(self.img_backbone.forward).parameters:
+                feature_maps = self.img_backbone(img, num_cams, metas=metas)
+            else:
+                feature_maps = self.img_backbone(img)
+            if self.img_neck is not None:
+                feature_maps = list(self.img_neck(feature_maps))
+            for i, feat in enumerate(feature_maps):
+                feature_maps[i] = torch.reshape(
+                    feat, (bs, num_cams) + feat.shape[1:]
+                )
+            if return_depth and self.depth_branch is not None:
+                depths = self.depth_branch(feature_maps, metas.get("focal"))
+            else:
+                depths = None
+            if self.use_deformable_func:
+                feature_maps = feature_maps_format(feature_maps)
+            if return_depth:
+                return feature_maps, depths
+            return feature_maps
 
     def _forward(self, img, **data):
         if self.training:
@@ -132,3 +133,23 @@ class Sparse4D(BaseDetector):
             if isinstance(data[key], list):
                 data[key] = data[key][0]
         return self.simple_test(img[0], **data)
+
+    def train_step(self, data, optimizer):
+        # move tensors to gpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        data["focal"] = torch.stack(data["focal"]).to(device)
+        data["img"] = torch.stack(data["img"]).to(device)
+        data["projection_mat"] = torch.stack(data["projection_mat"]).to(device)
+        data["image_wh"] = torch.stack(data["image_wh"]).to(device)
+        data["gt_labels_3d"] = [t.to(device) for t in data["gt_labels_3d"]]
+        data["gt_bboxes_3d"] = [t.to(device) for t in data["gt_bboxes_3d"]]
+        data["instance_id"] = [t.to(device) for t in data["instance_id"]]
+
+        feature_maps, depths = self.extract_feat(data["img"], True, data)
+        model_outs = self.head(feature_maps, data)
+        output = self.head.loss(model_outs, data)
+        if depths is not None and "gt_depth" in data:
+            output["loss_dense_depth"] = self.depth_branch.loss(
+                depths, data["gt_depth"]
+            )
+        return output

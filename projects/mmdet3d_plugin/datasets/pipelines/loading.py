@@ -185,4 +185,5 @@ class LoadPointsFromFile(object):
             )
 
         results["points"] = points
+        results.pop("sweeps")
         return results

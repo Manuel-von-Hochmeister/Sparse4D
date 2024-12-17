@@ -4,6 +4,7 @@ import random
 from functools import partial
 
 import numpy as np
+import torch
 from mmengine.dataset.utils import default_collate as collate
 from mmengine.dist import get_dist_info
 from mmengine.registry import build_from_cfg, Registry
@@ -16,9 +17,18 @@ from projects.mmdet3d_plugin.datasets.samplers import (
     DistributedSampler,
     build_sampler
 )
+from mmengine.dataset import pseudo_collate
+import torch.nn.functional as F
 
 from torch.utils.data import Sampler, RandomSampler
 
+
+def custom_collate(batch):
+    result = {}
+    for k in batch[0].keys():
+        result[k] = [batch[i][k] for i in range(len(batch))]
+    
+    return result
 
 def _concat_dataset(cfg, default_args=None):
     from mmengine.dataset.dataset_wrapper import ConcatDataset
@@ -179,7 +189,7 @@ def build_dataloader(
         sampler=sampler,
         batch_sampler=batch_sampler,
         num_workers=num_workers,
-        collate_fn=partial(collate),
+        collate_fn=custom_collate,
         pin_memory=False,
         worker_init_fn=init_fn,
         **kwargs
