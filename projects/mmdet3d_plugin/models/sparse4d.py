@@ -152,4 +152,8 @@ class Sparse4D(BaseDetector):
             output["loss_dense_depth"] = self.depth_branch.loss(
                 depths, data["gt_depth"]
             )
+
+        # TODO: add backward propagation and weight update
+        # loss.backward()
+        # optimizer.step()
         return output
