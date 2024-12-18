@@ -26,7 +26,17 @@ from torch.utils.data import Sampler, RandomSampler
 def custom_collate(batch):
     result = {}
     for k in batch[0].keys():
-        result[k] = [batch[i][k] for i in range(len(batch))]
+        if k == "gt_depth":
+            stacked_gt_depth = []
+            for depth_map_idx in range(len(batch[0][k])):
+                stacked_gt_depth.append(
+                    torch.stack(
+                        [batch[sample_idx][k][depth_map_idx] for sample_idx in range(len(batch))]
+                    )
+                )
+            result[k] = stacked_gt_depth
+        else:
+            result[k] = [batch[i][k] for i in range(len(batch))]
     
     return result
 
