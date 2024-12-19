@@ -1,0 +1,16 @@
+# List of dependencies
+# numpy==1.25.2
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+openmim
+mmdet3d==1.4.0
+mmdet>=3.0.0,<3.3.0
+mmcv>=2.0.0rc4,<2.2.0
+onnxruntime
+fvcore
+tensorboardX
+geffnet
+ortools==9.3.10497
+ujson
+mmsegmentation>=1.0.0
