@@ -11,7 +11,25 @@
             "program": "/home/vmn8si/repos/Sparse4D/tools/train.py",
             "console": "integratedTerminal",
             "args":[
-                "/home/vmn8si/repos/Sparse4D/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704_fc_only.py",
+                "/home/vmn8si/repos/Sparse4D/projects/configs/update_openmml_version.py",
+                //"1",
+                //"--work-dir", "/home/vmn8si/repos/Sparse4D/output"
+            ],
+            "env": {
+                "PYTHONPATH": "/home/vmn8si/repos/Sparse4D/:${env:PYTHONPATH}",
+                "PATH": "/usr/local/cuda-12.1/bin:$PATH",
+                "LD_LIBRARY_PATH": "/usr/local/cuda-12.1/lib64:$LD_LIBRARY_PATH",
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "train_mv",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/vmn8si/repos/Sparse4D/tools/train.py",
+            "console": "integratedTerminal",
+            "args":[
+                "/home/vmn8si/repos/Sparse4D/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py",
                 //"1",
                 //"--work-dir", "/home/vmn8si/repos/Sparse4D/output"
             ],
@@ -27,6 +45,57 @@
                 "--version",  "v1.0-mini", "--info_prefix", "/home/vmn8si/repos/Sparse4D/data_fc/nuscenes_anno_pkls/nuscenes-mini"
             ],
             "justMyCode": false
+        },
+        {
+            "name": "create_anchors",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/vmn8si/repos/Sparse4D/tools/anchor_generator.py",
+            "console": "integratedTerminal",
+            "args":[
+                "--ann_file", "/home/vmn8si/repos/Sparse4D/data_fc/nuscenes_anno_pkls/nuscenes-mini_infos_train.pkl",
+                "--output_file_name", "nuscenes_kmeans900_range55",
+                "--num_anchor", "900",
+                "--detection_range", "55"
+            ],
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "/home/vmn8si/repos/Sparse4D/:${env:PYTHONPATH}"
+            }
+        },
+        {
+            "name": "test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/vmn8si/repos/Sparse4D/tools/test.py",
+            "console": "integratedTerminal",
+            "args":[
+                "/home/vmn8si/repos/Sparse4D/projects/configs/sparse4dv3_fc_400anchors_range100.py",
+                "/home/vmn8si/repos/Sparse4D/ckpt/iter_70300.pth",
+                "--out", "/home/vmn8si/repos/Sparse4D/test_output/iter_70300_test.pkl",
+                "--eval", "mAP", "recall"
+            ],
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "/home/vmn8si/repos/Sparse4D/:${env:PYTHONPATH}"
+            }
+        },
+        {
+            "name": "test_mv",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/vmn8si/repos/Sparse4D/tools/test.py",
+            "console": "integratedTerminal",
+            "args":[
+                "/home/vmn8si/repos/Sparse4D/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py",
+                "/home/vmn8si/repos/Sparse4D/ckpt/sparse4dv3_r50.pth",
+                "--out", "/home/vmn8si/repos/Sparse4D/test_output/mv_test.pkl",
+                "--eval", "mAP", "recall"
+            ],
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "/home/vmn8si/repos/Sparse4D/:${env:PYTHONPATH}"
+            }
         }
     ]
 }
