@@ -60,35 +60,35 @@ class Sparse4D(BaseDetector):
             )
 
     def extract_feat(self, img, return_depth=False, metas=None):
-        #with torch.cuda.amp.autocast():
-        bs = img.shape[0]
-        img = img.to(dtype=torch.float16)
-        if img.dim() == 5:  # multi-view
-            num_cams = img.shape[1]
-            img = img.flatten(end_dim=1)
-        else:
-            num_cams = 1
-        if self.use_grid_mask:
-            img = self.grid_mask(img)
-        if "metas" in signature(self.img_backbone.forward).parameters:
-            feature_maps = self.img_backbone(img, num_cams, metas=metas)
-        else:
-            feature_maps = self.img_backbone(img)
-        if self.img_neck is not None:
-            feature_maps = list(self.img_neck(feature_maps))
-        for i, feat in enumerate(feature_maps):
-            feature_maps[i] = torch.reshape(
-                feat, (bs, num_cams) + feat.shape[1:]
-            )
-        if return_depth and self.depth_branch is not None:
-            depths = self.depth_branch(feature_maps, metas.get("focal"))
-        else:
-            depths = None
-        if self.use_deformable_func:
-            feature_maps = feature_maps_format(feature_maps)
-        if return_depth:
-            return feature_maps, depths
-        return feature_maps
+        with torch.cuda.amp.autocast():
+            bs = img.shape[0]
+            #img = img.to(dtype=torch.float16)
+            if img.dim() == 5:  # multi-view
+                num_cams = img.shape[1]
+                img = img.flatten(end_dim=1)
+            else:
+                num_cams = 1
+            if self.use_grid_mask:
+                img = self.grid_mask(img)
+            if "metas" in signature(self.img_backbone.forward).parameters:
+                feature_maps = self.img_backbone(img, num_cams, metas=metas)
+            else:
+                feature_maps = self.img_backbone(img)
+            if self.img_neck is not None:
+                feature_maps = list(self.img_neck(feature_maps))
+            for i, feat in enumerate(feature_maps):
+                feature_maps[i] = torch.reshape(
+                    feat, (bs, num_cams) + feat.shape[1:]
+                )
+            if return_depth and self.depth_branch is not None:
+                depths = self.depth_branch(feature_maps, metas.get("focal"))
+            else:
+                depths = None
+            if self.use_deformable_func:
+                feature_maps = feature_maps_format(feature_maps)
+            if return_depth:
+                return feature_maps, depths
+            return feature_maps
 
     def _forward(self, img, **data):
         if self.training:

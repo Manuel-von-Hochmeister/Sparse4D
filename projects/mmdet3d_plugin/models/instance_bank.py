@@ -98,9 +98,8 @@ class InstanceBank(nn.Module):
                 T_temp2cur = self.cached_anchor.new_tensor(
                     np.stack(
                         [
-                            x["T_global_inv"]
-                            @ self.metas["img_metas"][i]["T_global"]
-                            for i, x in enumerate(metas["img_metas"])
+                            metas["T_global_inv"][i] @ metas["T_global"][i]
+                            for i in range(len(metas["T_global"]))
                         ]
                     )
                 )

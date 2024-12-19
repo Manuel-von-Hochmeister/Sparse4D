@@ -60,7 +60,7 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 1
+total_batch_size = 2
 num_gpus = 1
 batch_size = total_batch_size // num_gpus
 num_iters_per_epoch = int(1 // (num_gpus * batch_size))
@@ -86,7 +86,7 @@ log_config = dict(
 load_from = "" #"/home/vmn8si/repos/Sparse4D/ckpt/resnet50-19c8e357.pth"
 resume_from = None
 workflow = [("train", 1)]
-fp16 = dict(loss_scale=32.0)
+fp16 = None #dict(loss_scale=32.0)
 input_shape = (704, 256)
 
 tracking_test = True
@@ -370,7 +370,7 @@ data_aug_conf = {
 
 data = dict(
     samples_per_gpu=batch_size,
-    workers_per_gpu=batch_size,
+    workers_per_gpu=0,
     train=dict(
         **data_basic_config,
         ann_file=anno_root + "nuscenes-mini_infos_train.pkl",
@@ -410,6 +410,12 @@ optimizer = dict(
         {
             'module_name': "img_backbone",  # Backbone parameters
             'lr': 1.5e-4,                             # Learning rate for backbone
+            'weight_decay': 0.0001                  # Weight decay for backbone
+        },
+        # Backbone parameters - higher learning rate
+        {
+            'module_name': "img_neck",  # Backbone parameters
+            'lr': 3e-4,                             # Learning rate for backbone
             'weight_decay': 0.0001                  # Weight decay for backbone
         },
         # Head parameters - lower learning rate
